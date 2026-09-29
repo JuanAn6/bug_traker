@@ -1,0 +1,150 @@
+@if (editing() === undefined) {
+  <div class="page"><app-empty icon="bug" [text]="'errors.issueNotFound' | t: { id: id() }" /></div>
+} @else {
+  <form class="page" [formGroup]="form" (ngSubmit)="save()" (appFileDrop)="addFiles($event)" [dropDisabled]="!perm.can('uploadFile', projectId())">
+    <header class="page-header">
+      <h1><app-icon [name]="editing() ? 'edit' : 'bug'" [size]="18" />
+        {{ editing() ? ('issue.editTitle' | t: { key: store.issueKey(editing()!) }) : ('nav.report' | t) }}</h1>
+      <div class="actions">
+        <label class="check"><input type="checkbox" [checked]="advanced()" (change)="advanced.set(!advanced())" />{{ 'form.advanced' | t }}</label>
+        @if (editing(); as e) { <a class="btn" [routerLink]="['/issues', e.id]">{{ 'common.cancel' | t }}</a> }
+        @else if (hasDraft()) { <button type="button" class="btn" (click)="discardDraft()">{{ 'form.discardDraft' | t }}</button> }
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="panel-title"><app-icon name="database" />{{ 'form.classification' | t }}</div>
+      <div class="panel-body form-grid two">
+        <label for="f-project" class="required">{{ 'fields.projectId' | t }}</label>
+        <select id="f-project" formControlName="projectId">
+          @for (p of projects(); track p.id) { <option [ngValue]="p.id">{{ p.parentId ? '» ' : '' }}{{ p.name }}</option> }
+        </select>
+        <label for="f-cat" class="required">{{ 'fields.category' | t }}</label>
+        <select id="f-cat" formControlName="category">
+          @for (c of project()?.categories ?? []; track c.name) { <option [value]="c.name">{{ c.name }}</option> }
+        </select>
+
+        <label for="f-sev">{{ 'fields.severity' | t }}</label>
+        <select id="f-sev" formControlName="severity">@for (s of severities; track s) { <option [value]="s">{{ 'severity.' + s | t }}</option> }</select>
+        <label for="f-pri">{{ 'fields.priority' | t }}</label>
+        <select id="f-pri" formControlName="priority">@for (p of priorities; track p) { <option [value]="p">{{ 'priority.' + p | t }}</option> }</select>
+
+        <label for="f-rep">{{ 'fields.reproducibility' | t }}</label>
+        <select id="f-rep" formControlName="reproducibility">@for (r of reproducibility; track r) { <option [value]="r">{{ 'reproducibility.' + r | t }}</option> }</select>
+        @if (perm.can('assign', projectId())) {
+          <label>{{ 'fields.handlerId' | t }}</label>
+          <div class="row tight nowrap">
+            <app-user-select [value]="form.controls.handlerId.value" (valueChange)="form.controls.handlerId.setValue($event); form.markAsDirty()"
+              [minLevel]="40" [only]="memberIds()" noneLabel="form.autoAssign" />
+          </div>
+        } @else { <span></span><span></span> }
+
+        @if (advanced()) {
+          <label for="f-sprint">{{ 'fields.sprintId' | t }}</label>
+          <select id="f-sprint" formControlName="sprintId"><option [ngValue]="null">{{ 'sprints.backlog' | t }}</option>
+            @for (s of sprints(); track s.id) { <option [ngValue]="s.id">{{ s.name }} ({{ 'sprintState.' + s.state | t }})</option> }</select>
+          <label for="f-due">{{ 'fields.dueDate' | t }}</label>
+          <input id="f-due" type="date" formControlName="dueDate" />
+
+          <label for="f-pv">{{ 'fields.productVersion' | t }}</label>
+          <select id="f-pv" formControlName="productVersion"><option value="">—</option>
+            @for (v of project()?.versions ?? []; track v.name) { <option [value]="v.name">{{ v.name }}</option> }</select>
+          <label for="f-tv">{{ 'fields.targetVersion' | t }}</label>
+          <select id="f-tv" formControlName="targetVersion"><option value="">—</option>
+            @for (v of openVersions(); track v.name) { <option [value]="v.name">{{ v.name }}</option> }</select>
+
+          <label for="f-plat">{{ 'fields.platform' | t }}</label><input id="f-plat" formControlName="platform" list="dl-platform" />
+          <label for="f-os">{{ 'fields.os' | t }}</label>
+          <div class="row tight nowrap"><input id="f-os" formControlName="os" list="dl-os" style="flex:1" />
+            <input formControlName="osBuild" [placeholder]="'fields.osBuild' | t" [attr.aria-label]="'fields.osBuild' | t" style="width:90px" /></div>
+
+          <label for="f-est">{{ 'fields.estimate' | t }}</label><input id="f-est" type="number" min="0" step="0.5" formControlName="estimate" />
+          <label for="f-sp">{{ 'fields.storyPoints' | t }}</label>
+          <select id="f-sp" formControlName="storyPoints"><option [ngValue]="null">—</option>
+            @for (n of [1, 2, 3, 5, 8, 13, 21]; track n) { <option [ngValue]="n">{{ n }}</option> }</select>
+
+          <label for="f-vs">{{ 'fields.viewState' | t }}</label>
+          <select id="f-vs" formControlName="viewState"><option value="public">{{ 'viewState.public' | t }}</option><option value="private">{{ 'viewState.private' | t }}</option></select>
+          @if (editing() && perm.can('update', projectId())) {
+            <label>{{ 'fields.reporterId' | t }}</label>
+            <app-user-select [value]="form.controls.reporterId.value" (valueChange)="form.controls.reporterId.setValue($event ?? auth.me().id); form.markAsDirty()" [allowNone]="false" />
+          } @else { <span></span><span></span> }
+
+          @if (editing()) {
+            <label for="f-st">{{ 'fields.status' | t }}</label>
+            <select id="f-st" formControlName="status">@for (s of statusOptions(); track s) { <option [value]="s">{{ 'status.' + s | t }}</option> }</select>
+            <label for="f-res">{{ 'fields.resolution' | t }}</label>
+            <select id="f-res" formControlName="resolution">@for (r of resolutions; track r) { <option [value]="r">{{ 'resolution.' + r | t }}</option> }</select>
+            <label for="f-fix">{{ 'fields.fixedInVersion' | t }}</label>
+            <select id="f-fix" formControlName="fixedInVersion"><option value="">—</option>
+              @for (v of project()?.versions ?? []; track v.name) { <option [value]="v.name">{{ v.name }}</option> }</select>
+            <label class="check" style="grid-column:span 2"><input type="checkbox" formControlName="sticky" />{{ 'issue.sticky' | t }}</label>
+          }
+        }
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><app-icon name="file-text" />{{ 'form.details' | t }}</div>
+      <div class="panel-body form-grid">
+        <label for="f-sum" class="required">{{ 'fields.summary' | t }}</label>
+        <div class="col" style="gap:2px">
+          <input id="f-sum" formControlName="summary" maxlength="128" autocomplete="off" />
+          @if (form.controls.summary.touched && form.controls.summary.invalid) { <span class="error-text">{{ 'form.summaryRequired' | t }}</span> }
+          <span class="hint">{{ form.controls.summary.value.length }}/128</span>
+        </div>
+        <label class="top">{{ 'fields.description' | t }}</label>
+        <app-rich-editor formControlName="description" [placeholder]="'form.descriptionPlaceholder' | t" [uploader]="uploader" minHeight="140px" (submit)="save()" />
+        <label class="top">{{ 'fields.stepsToReproduce' | t }}</label>
+        <app-rich-editor formControlName="stepsToReproduce" [placeholder]="'form.stepsPlaceholder' | t" [uploader]="uploader" (submit)="save()" />
+        @if (advanced()) {
+          <label class="top">{{ 'fields.additionalInfo' | t }}</label>
+          <app-rich-editor formControlName="additionalInfo" [uploader]="uploader" (submit)="save()" />
+        }
+        <label>{{ 'fields.tags' | t }}</label>
+        <app-tag-input [value]="form.controls.tags.value" (valueChange)="form.controls.tags.setValue($event); form.markAsDirty()" />
+
+        @for (cf of customFields(); track cf.id) {
+          <label [for]="'cf-' + cf.id" [class.required]="cf.required">{{ cf.name }}</label>
+          <div [formGroup]="cfForm">
+            @switch (cf.type) {
+              @case ('list') { <select [id]="'cf-' + cf.id" [formControlName]="cf.id"><option value="">—</option>
+                @for (o of cf.options; track o) { <option [value]="o">{{ o }}</option> }</select> }
+              @case ('checkbox') { <input type="checkbox" [id]="'cf-' + cf.id" [checked]="!!cfForm.controls[cf.id].value" (change)="cfForm.controls[cf.id].setValue($any($event.target).checked ? '1' : ''); form.markAsDirty()" /> }
+              @case ('date') { <input type="date" [id]="'cf-' + cf.id" [formControlName]="cf.id" /> }
+              @case ('number') { <input type="number" [id]="'cf-' + cf.id" [formControlName]="cf.id" /> }
+              @default { <input [id]="'cf-' + cf.id" [formControlName]="cf.id" style="width:100%" /> }
+            }
+          </div>
+        }
+
+        @if (!editing() && perm.can('uploadFile', projectId())) {
+          <label class="top">{{ 'nav.documents' | t }}</label>
+          <div class="col">
+            <div class="row"><button type="button" class="btn" (click)="fp.click()"><app-icon name="paperclip" />{{ 'files.upload' | t }}</button>
+              <input #fp type="file" multiple hidden (change)="addFiles([].slice.call(fp.files)); fp.value = ''" />
+              <span class="hint">{{ 'files.dropHint' | t }}</span></div>
+            @if (pendingFiles().length) {
+              <div class="chips">
+                @for (a of pendingFiles(); track a.id) {
+                  <span class="file-chip"><app-icon name="paperclip" [size]="11" /><span class="v">{{ a.name }}</span><span class="muted">{{ a.size | bytes }}</span>
+                    <button type="button" class="icon-btn sm" (click)="removePending(a.id)" [attr.aria-label]="'common.remove' | t"><app-icon name="x" [size]="10" /></button></span>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <div class="form-actions">
+      @if (!editing()) { <label class="check" style="margin-right:auto"><input type="checkbox" [ngModelOptions]="{ standalone: true }" [(ngModel)]="reportStay" />{{ 'form.reportStay' | t }}</label> }
+      <span class="hint">Ctrl+Enter</span>
+      <button type="submit" class="btn primary" [disabled]="form.invalid || cfForm.invalid">
+        <app-icon name="save" />{{ (editing() ? 'common.saveChanges' : 'form.submit') | t }}</button>
+    </div>
+
+    <datalist id="dl-platform">@for (v of suggestions().platform; track v) { <option [value]="v"></option> }</datalist>
+    <datalist id="dl-os">@for (v of suggestions().os; track v) { <option [value]="v"></option> }</datalist>
+  </form>
+}

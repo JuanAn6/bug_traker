@@ -1,0 +1,6 @@
+@if (user(); as u) {
+  <app-avatar [user]="u" />
+  <span class="ellipsis" [class.muted]="!u.enabled" [title]="u.username">{{ short() ? u.username : u.realName }}</span>
+} @else {
+  <span class="muted">{{ (empty() || 'common.unassigned') | t }}</span>
+}

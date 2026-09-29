@@ -1,0 +1,34 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="calendar" [size]="18" />{{ 'nav.calendar' | t }}</h1>
+    <div class="row tight">
+      <button type="button" class="icon-btn" (click)="shift(-1)" [attr.aria-label]="'common.previous' | t"><app-icon name="chevron-left" /></button>
+      <b style="min-width:150px;text-align:center">{{ monthIso() | fmtDate: 'month' }}</b>
+      <button type="button" class="icon-btn" (click)="shift(1)" [attr.aria-label]="'common.next' | t"><app-icon name="chevron-right" /></button>
+      <button type="button" class="btn sm" (click)="today()">{{ 'calendar.today' | t }}</button>
+    </div>
+    <div class="actions"><label class="check"><input type="checkbox" [checked]="hideResolved()" (change)="hideResolved.set(!hideResolved())" />{{ 'calendar.hideResolved' | t }}</label></div>
+  </header>
+
+  <div class="calendar" role="grid">
+    @for (d of weekdays(); track d) { <div class="dow" role="columnheader">{{ d }}</div> }
+    @for (d of days(); track d.key) {
+      <div class="day" role="gridcell" tabindex="0" [class.other]="d.other" [class.today]="d.key === todayKey" [class.selected]="d.key === selected()"
+        (click)="selected.set(d.key)" (keydown.enter)="selected.set(d.key)" [attr.aria-label]="d.key">
+        <span class="num">{{ d.num }}</span>
+        @for (s of d.sprints; track s.id + s.label) { <a class="ev sprint" [routerLink]="['/sprints', s.id]">{{ s.label }}</a> }
+        @for (i of d.issues.slice(0, 3); track i.id) {
+          <a class="ev" [attr.data-status]="i.status" [routerLink]="['/issues', i.id]" [title]="i.summary">{{ store.issueKey(i) }} {{ i.summary }}</a>
+        }
+        @if (d.issues.length > 3) { <span class="more">{{ 'calendar.more' | t: { count: d.issues.length - 3 } }}</span> }
+      </div>
+    }
+  </div>
+
+  @if (selectedDay(); as d) {
+    <section class="panel">
+      <div class="panel-title"><app-icon name="calendar" />{{ d.key | fmtDate: 'date' }}<span class="badge">{{ d.issues.length }}</span></div>
+      <div class="panel-body flush"><app-issue-table [issues]="d.issues" [columns]="columns" [footer]="false" [emptyText]="'calendar.nothing' | t" /></div>
+    </section>
+  }
+</div>

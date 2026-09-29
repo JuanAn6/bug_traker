@@ -1,0 +1,38 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="bell" [size]="18" />{{ 'nav.notifications' | t }}</h1>
+    <div class="actions">
+      <div class="row tight" role="radiogroup">
+        <button type="button" class="btn sm" [attr.aria-pressed]="!unreadOnly()" (click)="unreadOnly.set(false)">{{ 'common.all' | t }}</button>
+        <button type="button" class="btn sm" [attr.aria-pressed]="unreadOnly()" (click)="unreadOnly.set(true)">{{ 'notifications.unread' | t }} ({{ svc.unread() }})</button>
+      </div>
+      <select (change)="type.set($any($event.target).value)" [attr.aria-label]="'notifications.type.label' | t">
+        <option value="">{{ 'notifications.allTypes' | t }}</option>
+        @for (t of types; track t) { <option [value]="t">{{ 'notifications.kind.' + t | t }}</option> }
+      </select>
+      <button type="button" class="btn" [disabled]="!svc.unread()" (click)="svc.markAllRead()"><app-icon name="check" />{{ 'notifications.markAll' | t }}</button>
+      <button type="button" class="btn danger" [disabled]="!readIds().length" (click)="svc.remove(readIds())"><app-icon name="trash" />{{ 'notifications.clearRead' | t }}</button>
+    </div>
+  </header>
+  <div class="grid-wrap">
+    <table class="grid plain wrap">
+      <tbody>
+        @for (n of list(); track n.id) {
+          <tr [style.font-weight]="n.read ? 'normal' : '600'">
+            <td style="width:26px"><app-icon [name]="icon[n.type]" /></td>
+            <td style="width:150px"><app-user [id]="n.actorId" [short]="true" /></td>
+            <td>{{ 'notifications.type.' + n.type | t: { user: '' } }}
+              <a [routerLink]="['/issues', n.issueId]" (click)="svc.markRead([n.id])">#{{ n.issueId }}</a> — {{ n.text }}</td>
+            <td class="nowrap muted" style="width:130px" [title]="n.date | fmtDate">{{ n.date | relTime }}</td>
+            <td class="nowrap" style="width:60px">
+              <button type="button" class="icon-btn sm" (click)="svc.markRead([n.id], !n.read)" [title]="(n.read ? 'notifications.markUnread' : 'notifications.markRead') | t">
+                <app-icon [name]="n.read ? 'inbox' : 'check'" /></button>
+              <button type="button" class="icon-btn sm" (click)="svc.remove([n.id])" [title]="'common.delete' | t"><app-icon name="trash" /></button>
+            </td>
+          </tr>
+        } @empty { <tr><td><app-empty icon="bell" [text]="'notifications.none' | t" /></td></tr> }
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">{{ 'notifications.hint' | t }} <a routerLink="/account">{{ 'nav.account' | t }}</a></p>
+</div>

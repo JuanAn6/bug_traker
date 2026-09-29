@@ -1,0 +1,198 @@
+// Corporate + UI color tokens. Every color used by the app comes from here.
+// Light values mimic DBeaver's classic light theme, dark values its "Dark" (Darcula-like) theme.
+
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  // Corporate
+  --brand: #5c3d2e;          // beaver brown
+  --brand-strong: #3e281d;
+  --brand-accent: #e8912d;   // orange highlight
+  --accent: #3875d7;         // selection / primary action blue
+  --accent-hover: #2d63bd;
+  --accent-contrast: #ffffff;
+  --accent-soft: #dbe7fa;
+
+  // Chrome
+  --bg-window: #eceef1;
+  --bg-panel: #ffffff;
+  --bg-panel-alt: #f6f7f9;
+  --bg-toolbar: #f3f4f6;
+  --bg-menubar: #f8f8f9;
+  --bg-tab: #e2e5e9;
+  --bg-tab-hover: #eceff2;
+  --bg-tab-active: #ffffff;
+  --tab-active-indicator: var(--accent);
+  --bg-input: #ffffff;
+  --bg-input-disabled: #f0f1f3;
+  --bg-statusbar: #e6e8eb;
+  --bg-header: #eef0f3;       // grid headers, view title bars
+  --bg-label: #f1f3f6;        // MantisBT-style label cells
+  --border: #cfd3d9;
+  --border-strong: #a9afb8;
+  --text: #1f2328;
+  --text-muted: #636c76;
+  --text-inverse: #ffffff;
+  --link: #1f5fbf;
+  --row-alt: #f8f9fb;
+  --row-hover: #eaf1fc;
+  --row-selected: #cfe0fa;
+  --focus-ring: #3875d7aa;
+  --shadow: 0 4px 16px rgb(0 0 0 / 0.14);
+  --scrollbar: #c3c8cf;
+  --backdrop: rgb(20 24 30 / 0.35);
+
+  // Semantic
+  --danger: #c62828;
+  --danger-soft: #fde4e4;
+  --warning: #b86e00;
+  --warning-soft: #fff1d6;
+  --success: #2e7d32;
+  --success-soft: #e0f3e1;
+  --info: #1f5fbf;
+  --info-soft: #dfeafb;
+  --overdue: #c62828;
+
+  // Status (MantisBT palette; overridden at runtime from the workflow admin)
+  --status-new: #fcbdbd;
+  --status-feedback: #e3b7eb;
+  --status-acknowledged: #ffcd85;
+  --status-confirmed: #fff494;
+  --status-assigned: #c2dfff;
+  --status-resolved: #d2f5b0;
+  --status-closed: #c9ccc4;
+  --status-text: #1f2328;
+  --status-row-mix: 45%;
+
+  // Priority
+  --priority-none: #9aa1a9;
+  --priority-low: #5b8def;
+  --priority-normal: #7a8591;
+  --priority-high: #e8912d;
+  --priority-urgent: #e2562b;
+  --priority-immediate: #c62828;
+
+  // Severity
+  --severity-feature: #2e7d32;
+  --severity-trivial: #7a8591;
+  --severity-text: #7a8591;
+  --severity-tweak: #5b8def;
+  --severity-minor: #b8860b;
+  --severity-major: #e8912d;
+  --severity-crash: #c62828;
+  --severity-block: #8e1b1b;
+
+  // Charts (validated categorical order: blue, orange, aqua, yellow, magenta, green; CVD-checked)
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-grid: #e3e6ea;
+}
+
+@mixin dark-tokens {
+  color-scheme: dark;
+
+  --brand: #b58a6a;
+  --brand-strong: #d7ae8c;
+  --brand-accent: #f0a043;
+  --accent: #4b7fd6;
+  --accent-hover: #5c8ee0;
+  --accent-contrast: #ffffff;
+  --accent-soft: #2c3c57;
+
+  --bg-window: #2b2b2b;
+  --bg-panel: #313335;
+  --bg-panel-alt: #2d2f31;
+  --bg-toolbar: #3c3f41;
+  --bg-menubar: #3c3f41;
+  --bg-tab: #2f3133;
+  --bg-tab-hover: #393c3e;
+  --bg-tab-active: #313335;
+  --tab-active-indicator: #4b7fd6;
+  --bg-input: #45494a;
+  --bg-input-disabled: #3a3d3f;
+  --bg-statusbar: #3c3f41;
+  --bg-header: #3a3d3f;
+  --bg-label: #383a3c;
+  --border: #4e5254;
+  --border-strong: #666b6e;
+  --text: #cfd2d6;
+  --text-muted: #939aa1;
+  --text-inverse: #1f2328;
+  --link: #7aa7ee;
+  --row-alt: #2f3133;
+  --row-hover: #3a4454;
+  --row-selected: #2f65ca;
+  --focus-ring: #4b7fd6bb;
+  --shadow: 0 6px 20px rgb(0 0 0 / 0.5);
+  --scrollbar: #5a5e61;
+  --backdrop: rgb(0 0 0 / 0.5);
+
+  --danger: #ef6b6b;
+  --danger-soft: #4a2a2a;
+  --warning: #e0a44a;
+  --warning-soft: #4a3a22;
+  --success: #6cc070;
+  --success-soft: #26402a;
+  --info: #7aa7ee;
+  --info-soft: #273750;
+  --overdue: #ef6b6b;
+
+  --status-row-mix: 18%;
+
+  --priority-normal: #939aa1;
+  --severity-trivial: #939aa1;
+  --severity-text: #939aa1;
+  --severity-block: #ef6b6b;
+
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-grid: #45494a;
+}
+
+:root[data-theme='dark'] {
+  @include dark-tokens;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include dark-tokens;
+  }
+}
+
+// Density
+:root,
+:root[data-density='compact'] {
+  --font-size: 12px;
+  --font-size-sm: 11px;
+  --font-size-lg: 14px;
+  --row-h: 24px;
+  --ctl-h: 24px;
+  --pad: 6px;
+  --gap: 8px;
+  --radius: 3px;
+}
+
+:root[data-density='comfortable'] {
+  --font-size: 13.5px;
+  --font-size-sm: 12px;
+  --font-size-lg: 16px;
+  --row-h: 32px;
+  --ctl-h: 30px;
+  --pad: 9px;
+  --gap: 12px;
+  --radius: 4px;
+}
+
+:root {
+  --font: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, 'SFMono-Regular', Menlo, monospace;
+}

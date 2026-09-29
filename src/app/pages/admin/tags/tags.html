@@ -1,0 +1,24 @@
+<div class="page" style="max-width:800px">
+  <header class="page-header">
+    <h1><app-icon name="tag" [size]="18" />{{ 'nav.tags' | t }}</h1>
+    <div class="actions"><input type="search" [placeholder]="'common.search' | t" [ngModel]="query()" (ngModelChange)="query.set($event)" /></div>
+  </header>
+  <p class="hint">{{ 'tags.hint' | t }}</p>
+  <div class="grid-wrap">
+    <table class="grid plain">
+      <thead><tr><th>{{ 'tags.tag' | t }}</th><th class="num">{{ 'tags.usage' | t }}</th><th>{{ 'tags.rename' | t }}</th><th></th></tr></thead>
+      <tbody>
+        @for (t of list(); track t[0]) {
+          <tr>
+            <td><a class="tag" routerLink="/issues" [queryParams]="{ tags: t[0], hideStatus: '' }">{{ t[0] }}</a></td>
+            <td class="num">{{ t[1] }}</td>
+            <td><form class="row tight" (submit)="$event.preventDefault(); rename(t[0], r.value)">
+              <input #r [value]="t[0]" style="width:160px" [attr.aria-label]="'tags.rename' | t" />
+              <button type="submit" class="btn sm">{{ 'common.apply' | t }}</button></form></td>
+            <td><button type="button" class="icon-btn sm" (click)="remove(t[0], t[1])" [title]="'common.delete' | t"><app-icon name="trash" /></button></td>
+          </tr>
+        } @empty { <tr><td colspan="4"><app-empty icon="tag" [text]="'tags.none' | t" /></td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>

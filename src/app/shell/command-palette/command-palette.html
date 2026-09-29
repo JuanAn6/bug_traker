@@ -1,0 +1,11 @@
+<dialog #dlg class="palette" (close)="query.set('')" (click)="$event.target === dlg && dlg.close()" [attr.aria-label]="'palette.title' | t">
+  <input #inp type="search" [placeholder]="'palette.placeholder' | t" [value]="query()" (input)="query.set(inp.value); active.set(0)"
+    (keydown)="key($event)" role="combobox" aria-controls="palette-list" [attr.aria-activedescendant]="'pc-' + active()" />
+  <ul id="palette-list" role="listbox">
+    @for (c of results(); track $index) {
+      <li [class.active]="$index === active()" [id]="'pc-' + $index" role="option" [attr.aria-selected]="$index === active()">
+        <button type="button" (click)="run(c)" (mousemove)="active.set($index)"><app-icon [name]="c.icon" />{{ c.label }}<span class="kind">{{ c.kind }}</span></button>
+      </li>
+    } @empty { <li class="muted" style="padding:8px">{{ 'palette.none' | t }}</li> }
+  </ul>
+</dialog>

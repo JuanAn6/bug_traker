@@ -1,0 +1,110 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="home" [size]="18" />{{ 'home.greeting' | t: { name: auth.me().realName.split(' ')[0] } }}</h1>
+    <span class="muted">{{ ws.project()?.name ?? ('projects.all' | t) }}</span>
+    <div class="actions">
+      <button type="button" class="btn" (click)="customize().open()"><app-icon name="sliders" />{{ 'home.customize' | t }}</button>
+      @if (perm.can('report')) { <a class="btn primary" routerLink="/report"><app-icon name="plus" />{{ 'nav.report' | t }}</a> }
+    </div>
+  </header>
+
+  <section class="kpis" [attr.aria-label]="'home.kpis' | t">
+    <a class="kpi" routerLink="/issues"><span class="v">{{ kpi().open }}</span><span class="l">{{ 'home.kpi.open' | t }}</span></a>
+    <a class="kpi brand" routerLink="/issues" [queryParams]="{ handlerIds: -1 }"><span class="v">{{ kpi().mine }}</span><span class="l">{{ 'home.kpi.mine' | t }}</span></a>
+    <a class="kpi danger" routerLink="/issues" [queryParams]="{ overdueOnly: true }"><span class="v">{{ kpi().overdue }}</span><span class="l">{{ 'home.kpi.overdue' | t }}</span></a>
+    <a class="kpi warning" routerLink="/issues" [queryParams]="{ handlerIds: 0 }"><span class="v">{{ kpi().unassigned }}</span><span class="l">{{ 'home.kpi.unassigned' | t }}</span></a>
+    <a class="kpi success" routerLink="/issues" [queryParams]="{ statuses: 'resolved,closed', updatedFrom: weekAgo }"><span class="v">{{ kpi().resolvedWeek }}</span><span class="l">{{ 'home.kpi.resolvedWeek' | t }}</span></a>
+  </section>
+
+  <div class="row" style="align-items:stretch;gap:12px">
+    <div class="col" style="flex:2 1 560px">
+      @for (w of widgets(); track w.key) {
+        <details class="panel" open>
+          <summary class="panel-title"><app-icon [name]="w.def.icon" />{{ 'home.widget.' + w.key | t }}
+            <span class="badge">{{ w.issues.length }}</span>
+            <span class="actions"><a class="small" [routerLink]="'/issues'" [queryParams]="w.params" (click)="$event.stopPropagation()">{{ 'common.viewAll' | t }}</a></span>
+          </summary>
+          <div class="panel-body flush">
+            <app-issue-table [issues]="w.issues.slice(0, 8)" [columns]="columns" [sort]="w.def.sort" [footer]="false" [emptyText]="'home.emptyWidget' | t" />
+          </div>
+        </details>
+      }
+    </div>
+
+    <aside class="col" style="flex:1 1 320px">
+      @for (s of sprintCards(); track s.sprint.id) {
+        <section class="panel">
+          <div class="panel-title"><app-icon name="zap" /><a [routerLink]="['/sprints', s.sprint.id]">{{ s.project }} · {{ s.sprint.name }}</a>
+            <span class="actions"><span class="badge info">{{ 'sprints.daysLeft' | t: { count: s.daysLeft } }}</span></span></div>
+          <div class="panel-body col">
+            <div class="muted small">{{ s.sprint.goal }}</div>
+            <div class="progress-line"><progress [value]="s.bd.done" [max]="s.bd.total || 1"></progress>
+              <span class="pct">{{ s.pct }}%</span></div>
+            <app-line-chart [labels]="s.bd.labels" [label]="'sprints.burndown' | t"
+              [series]="[{ name: ('sprints.ideal' | t), color: 'var(--text-muted)', values: s.bd.ideal, dashed: true },
+                         { name: ('sprints.remaining' | t), color: 'var(--chart-1)', values: s.bd.remaining }]" />
+          </div>
+        </section>
+      }
+
+      <section class="panel">
+        <div class="panel-title"><app-icon name="chart" />{{ 'home.statusDistribution' | t }}</div>
+        <div class="panel-body col">
+          <div class="stacked-bar" role="img" [attr.aria-label]="'home.statusDistribution' | t">
+            @for (s of statusDist(); track s.status) {
+              @if (s.count) { <span [attr.data-status]="s.status" [style.flex]="s.count" [title]="('status.' + s.status | t) + ': ' + s.count"></span> }
+            }
+          </div>
+          <div class="legend">
+            @for (s of statusDist(); track s.status) {
+              <a [attr.data-status]="s.status" routerLink="/issues" [queryParams]="{ statuses: s.status }">
+                <span><i style="background:var(--st)"></i>{{ 'status.' + s.status | t }} {{ s.count }}</span></a>
+            }
+          </div>
+        </div>
+      </section>
+
+      @if (notif.unread()) {
+        <section class="panel">
+          <div class="panel-title"><app-icon name="bell" />{{ 'nav.notifications' | t }}<span class="badge danger">{{ notif.unread() }}</span>
+            <span class="actions"><a class="small" routerLink="/notifications">{{ 'common.viewAll' | t }}</a></span></div>
+          <ul class="panel-body timeline">
+            @for (n of unreadNotifications(); track n.id) {
+              <li><app-icon name="bell" /><a [routerLink]="['/issues', n.issueId]" (click)="notif.markRead([n.id])">
+                {{ 'notifications.type.' + n.type | t: { user: store.userMap().get(n.actorId)?.username } }} — #{{ n.issueId }} {{ n.text }}</a>
+                <span class="when">{{ n.date | relTime }}</span></li>
+            }
+          </ul>
+        </section>
+      }
+
+      <section class="panel">
+        <div class="panel-title"><app-icon name="history" />{{ 'home.activity' | t }}</div>
+        <ul class="panel-body timeline">
+          @for (h of activity(); track h.id) {
+            <li>
+              <app-user [id]="h.userId" [short]="true" />
+              <span class="ellipsis" style="flex:1"><a [routerLink]="['/issues', h.issueId]">#{{ h.issueId }}</a> {{ fmt.line(h) }}</span>
+              <span class="when">{{ h.date | relTime }}</span>
+            </li>
+          } @empty { <li class="muted">{{ 'home.noActivity' | t }}</li> }
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<app-dialog #customizeDlg [title]="'home.customize' | t" size="narrow">
+  <p class="muted">{{ 'home.customizeHint' | t }}</p>
+  @for (w of order(); track w; let i = $index) {
+    <div class="row nowrap">
+      <label class="check" style="flex:1"><input type="checkbox" [checked]="enabled().has(w)" (change)="toggleWidget(w)" />{{ 'home.widget.' + w | t }}</label>
+      <button type="button" class="icon-btn sm" [disabled]="i === 0" (click)="moveWidget(i, -1)" [attr.aria-label]="'common.moveUp' | t"><app-icon name="chevron-up" /></button>
+      <button type="button" class="icon-btn sm" [disabled]="i === order().length - 1" (click)="moveWidget(i, 1)" [attr.aria-label]="'common.moveDown' | t"><app-icon name="chevron-down" /></button>
+    </div>
+  }
+  <ng-container footer>
+    <button type="button" class="btn" (click)="customize().close()">{{ 'common.cancel' | t }}</button>
+    <button type="button" class="btn primary" (click)="saveWidgets()">{{ 'common.save' | t }}</button>
+  </ng-container>
+</app-dialog>

@@ -1,0 +1,30 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="map" [size]="18" />{{ 'nav.roadmap' | t }}</h1>
+    <div class="actions"><a class="btn" routerLink="/changelog"><app-icon name="file-text" />{{ 'nav.changelog' | t }}</a></div>
+  </header>
+  @for (g of groups(); track g.project.id) {
+    <h2 class="row"><app-icon name="database" />{{ g.project.name }}</h2>
+    @for (v of g.versions; track v.name) {
+      <details class="panel" open>
+        <summary class="panel-title"><app-icon [name]="v.kind === 'sprint' ? 'zap' : 'flag'" />
+          @if (v.kind === 'sprint') { <a [routerLink]="['/sprints', v.id]">{{ v.name }}</a> } @else { {{ v.name }} }
+          @if (v.date) { <span class="muted small">({{ v.date | fmtDate: 'date' }})</span> }
+          <span class="actions progress"><span class="progress-line"><progress [value]="v.done" [max]="v.issues.length || 1"></progress>
+            <span class="pct">{{ v.done }}/{{ v.issues.length }}</span></span></span>
+        </summary>
+        <div class="panel-body col issues">
+          @if (v.description) { <p class="muted">{{ v.description }}</p> }
+          @for (i of v.issues; track i.id) {
+            <div class="row nowrap" [class.done]="resolved(i)">
+              <a class="mono key" [routerLink]="['/issues', i.id]">{{ store.issueKey(i) }}</a>
+              <span class="muted small category">[{{ i.category }}]</span>
+              <span class="ellipsis summary">{{ i.summary }}</span>
+              <app-status [status]="i.status" /><app-user [id]="i.handlerId" [short]="true" empty="common.dash" />
+            </div>
+          } @empty { <span class="muted">{{ 'roadmap.noIssues' | t }}</span> }
+        </div>
+      </details>
+    } @empty { <p class="muted">{{ 'roadmap.none' | t }}</p> }
+  } @empty { <app-empty icon="map" [text]="'roadmap.none' | t" /> }
+</div>

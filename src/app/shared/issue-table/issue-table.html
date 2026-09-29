@@ -1,0 +1,107 @@
+<div class="grid-wrap" [style.max-height]="maxHeight()">
+  <table class="grid" [class.status-rows]="statusRows()" role="grid" [attr.aria-rowcount]="sorted().length">
+    <thead>
+      <tr>
+        @if (selectable()) {
+          <th class="sel"><input type="checkbox" [checked]="allChecked()" [indeterminate]="someChecked()" (change)="toggleAll()"
+            [attr.aria-label]="'common.selectAll' | t" /></th>
+        }
+        @for (c of columns(); track c; let i = $index) {
+          <th [class.sortable]="sortable()" [class.num]="c === 'attachments' || c === 'notes' || c === 'storyPoints'"
+            [attr.aria-sort]="ariaSort(c)" (click)="sortBy(c, $event)" [title]="'columns.' + c | t"
+            [attr.draggable]="reorderable()" (dragstart)="dragCol = i" (dragover)="$event.preventDefault(); overCol.set(i)"
+            (dragleave)="overCol.set(-1)" (drop)="dropCol(i)" [class.drag-over]="overCol() === i">
+            @switch (c) {
+              @case ('attachments') { <app-icon name="paperclip" [size]="12" /> }
+              @case ('notes') { <app-icon name="message" [size]="12" /> }
+              @default { {{ 'columns.' + c | t }} }
+            }
+            @if (sortIndex(c); as s) {
+              <span class="sort"><app-icon [name]="s.dir === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="10" />
+                @if (sort().length > 1) {<small>{{ s.n }}</small>}</span>
+            }
+          </th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (i of pageItems(); track i.id; let r = $index) {
+        <tr [attr.data-status]="i.status" tabindex="0" [class.selected]="selSet().has(i.id)" [class.sticky]="i.sticky"
+          [class.unread]="isUnread(i)" (dblclick)="open(i)" (keydown)="key($event, i, r)" (contextmenu)="context($event, i)">
+          @if (selectable()) {
+            <td class="sel"><input type="checkbox" [checked]="selSet().has(i.id)" (click)="toggle(i.id, $event)"
+              [attr.aria-label]="'common.select' | t" /></td>
+          }
+          @for (c of columns(); track c) {
+            @switch (c) {
+              @case ('id') { <td><a class="key" [routerLink]="['/issues', i.id]" (click)="remember()">{{ store.issueKey(i) }}</a>
+                @if (i.sticky) { <app-icon name="pin" [size]="11" /> } @if (i.viewState === 'private') { <app-icon name="lock" [size]="11" /> }</td> }
+              @case ('summary') { <td class="summary"><a [routerLink]="['/issues', i.id]" (click)="remember()">{{ i.summary }}</a>
+                @for (t of i.tags; track t) { <span class="tag" style="margin-left:4px">{{ t }}</span> }</td> }
+              @case ('project') { <td>{{ store.projectMap().get(i.projectId)?.name }}</td> }
+              @case ('category') { <td>{{ i.category }}</td> }
+              @case ('status') { <td><app-status [status]="i.status" />
+                @if (i.handlerId && showHandlerInStatus()) { <span class="muted small"> ({{ store.userMap().get(i.handlerId)?.username }})</span> }</td> }
+              @case ('resolution') { <td>{{ 'resolution.' + i.resolution | t }}</td> }
+              @case ('priority') { <td><app-priority [priority]="i.priority" [label]="false" /></td> }
+              @case ('severity') { <td><app-severity [severity]="i.severity" /></td> }
+              @case ('reproducibility') { <td>{{ 'reproducibility.' + i.reproducibility | t }}</td> }
+              @case ('reporter') { <td><app-user [id]="i.reporterId" [short]="true" /></td> }
+              @case ('handler') { <td><app-user [id]="i.handlerId" [short]="true" empty="common.dash" /></td> }
+              @case ('sprint') { <td>{{ i.sprintId ? store.sprintMap().get(i.sprintId)?.name : '' }}</td> }
+              @case ('targetVersion') { <td>{{ i.targetVersion }}</td> }
+              @case ('fixedInVersion') { <td>{{ i.fixedInVersion }}</td> }
+              @case ('tags') { <td>{{ i.tags.join(', ') }}</td> }
+              @case ('attachments') { <td class="num muted">{{ store.attachmentCounts().get(i.id) || '' }}</td> }
+              @case ('notes') { <td class="num muted">{{ store.noteCounts().get(i.id) || '' }}</td> }
+              @case ('created') { <td [title]="i.created | fmtDate">{{ i.created | fmtDate: 'date' }}</td> }
+              @case ('updated') { <td [title]="i.updated | fmtDate">{{ i.updated | relTime }}</td> }
+              @case ('dueDate') { <td [class.overdue]="overdue(i)">{{ i.dueDate | fmtDate: 'date' }}</td> }
+              @case ('storyPoints') { <td class="num">{{ i.storyPoints ?? '' }}</td> }
+              @case ('viewState') { <td>{{ 'viewState.' + i.viewState | t }}</td> }
+            }
+          }
+        </tr>
+      } @empty {
+        <tr><td [attr.colspan]="columns().length + (selectable() ? 1 : 0)" class="center muted" style="height:60px">{{ emptyText() || ('issues.none' | t) }}</td></tr>
+      }
+    </tbody>
+  </table>
+</div>
+@if (footer()) {
+  <div class="grid-footer">
+    <span>{{ 'grid.showing' | t: { from: sorted().length ? page() * size() + 1 : 0, to: rangeEnd(), total: sorted().length } }}</span>
+    @if (selectable() && selection().length) { <span>· {{ 'grid.selected' | t: { count: selection().length } }}</span> }
+    @if (pages() > 1) {
+      <div class="pager">
+        <button type="button" class="btn sm" [disabled]="page() === 0" (click)="page.set(0)">«</button>
+        <button type="button" class="btn sm" [disabled]="page() === 0" (click)="page.set(page() - 1)">‹</button>
+        @for (p of pageList(); track p) {
+          <button type="button" class="btn sm" [attr.aria-current]="p === page() ? 'page' : null" (click)="page.set(p)">{{ p + 1 }}</button>
+        }
+        <button type="button" class="btn sm" [disabled]="page() >= pages() - 1" (click)="page.set(page() + 1)">›</button>
+        <button type="button" class="btn sm" [disabled]="page() >= pages() - 1" (click)="page.set(pages() - 1)">»</button>
+      </div>
+    }
+  </div>
+}
+
+<div popover appMenu #ctx="appMenu" #ctxEl>
+  @if (ctxIssue(); as i) {
+    <button type="button" (click)="open(i)"><app-icon name="external" />{{ 'actions.open' | t }}</button>
+    @if (perm.can('assign', i.projectId)) {
+      <button type="button" (click)="actions.assign([i.id], auth.me().id)"><app-icon name="user" />{{ 'actions.assignToMe' | t }}</button>
+    }
+    <button type="button" (click)="actions.setMonitor([i.id], auth.me().id, !i.monitorIds.includes(auth.me().id))"><app-icon name="eye" />
+      {{ (i.monitorIds.includes(auth.me().id) ? 'actions.unmonitor' : 'actions.monitor') | t }}</button>
+    <hr />
+    <button type="button" (click)="copy(store.issueKey(i) + ' ' + i.summary)"><app-icon name="copy" />{{ 'actions.copyKey' | t }}</button>
+    <button type="button" (click)="copy(link(i))"><app-icon name="link" />{{ 'actions.copyLink' | t }}</button>
+    @if (perm.can('report', i.projectId)) {
+      <button type="button" (click)="cloneIssue(i)"><app-icon name="copy" />{{ 'actions.clone' | t }}</button>
+    }
+    @if (perm.can('delete', i.projectId)) {
+      <hr /><button type="button" (click)="actions.remove([i.id])"><app-icon name="trash" />{{ 'actions.delete' | t }}</button>
+    }
+  }
+</div>

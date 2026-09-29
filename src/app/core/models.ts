@@ -1,0 +1,274 @@
+import type { JSONContent } from '@tiptap/core';
+
+export type RichText = JSONContent | null;
+
+export type Status = 'new' | 'feedback' | 'acknowledged' | 'confirmed' | 'assigned' | 'resolved' | 'closed';
+export type Resolution =
+  | 'open' | 'fixed' | 'reopened' | 'unable_to_reproduce' | 'not_fixable'
+  | 'duplicate' | 'no_change_required' | 'suspended' | 'wont_fix';
+export type Priority = 'none' | 'low' | 'normal' | 'high' | 'urgent' | 'immediate';
+export type Severity = 'feature' | 'trivial' | 'text' | 'tweak' | 'minor' | 'major' | 'crash' | 'block';
+export type Reproducibility = 'always' | 'sometimes' | 'random' | 'have_not_tried' | 'unable_to_reproduce' | 'na';
+export type ViewState = 'public' | 'private';
+export type RelationshipType = 'related_to' | 'parent_of' | 'child_of' | 'duplicate_of' | 'has_duplicate';
+export type ProjectStatus = 'development' | 'release' | 'stable' | 'obsolete';
+export type SprintState = 'planned' | 'active' | 'closed';
+export type Theme = 'light' | 'dark' | 'system';
+export type Density = 'compact' | 'comfortable';
+
+/** MantisBT numeric access levels. */
+export type AccessLevel = 10 | 25 | 40 | 55 | 70 | 90;
+
+export type Action =
+  | 'view' | 'report' | 'update' | 'assign' | 'changeStatus' | 'close' | 'reopen' | 'delete' | 'move'
+  | 'addNote' | 'editOthersNotes' | 'viewPrivate' | 'uploadFile' | 'deleteOthersFiles' | 'monitorOthers'
+  | 'manageRelationships' | 'manageTags' | 'manageSprints' | 'manageProject' | 'manageUsers' | 'manageWorkflow'
+  | 'manageCustomFields';
+
+export type NotifyEvent = 'assigned' | 'mentioned' | 'status' | 'note' | 'attachment';
+
+export interface UserPrefs {
+  language: string;
+  theme: Theme;
+  density: Density;
+  defaultProjectId: number | null;
+  pageSize: number;
+  homeWidgets: HomeWidget[];
+  notify: Record<NotifyEvent, boolean>;
+  notesNewestFirst: boolean;
+}
+
+export type HomeWidget = 'assigned' | 'reported' | 'unassigned' | 'recent' | 'monitored' | 'feedback' | 'due';
+
+export interface User {
+  id: number;
+  username: string;
+  realName: string;
+  email: string;
+  accessLevel: AccessLevel;
+  enabled: boolean;
+  avatarColor: string;
+  prefs: UserPrefs;
+  lastVisit: string | null;
+  created: string;
+}
+
+export interface Category { name: string; defaultHandlerId: number | null; }
+export interface Version { name: string; date: string | null; released: boolean; obsolete: boolean; description: string; }
+export interface Member { userId: number; accessLevel: AccessLevel; }
+
+export interface Project {
+  id: number;
+  name: string;
+  key: string;
+  description: RichText;
+  status: ProjectStatus;
+  viewState: ViewState;
+  enabled: boolean;
+  parentId: number | null;
+  categories: Category[];
+  versions: Version[];
+  members: Member[];
+  customFieldIds: number[];
+  created: string;
+}
+
+export interface Sprint {
+  id: number;
+  projectId: number;
+  name: string;
+  goal: string;
+  start: string;
+  end: string;
+  state: SprintState;
+  capacity: number;
+}
+
+export interface Relationship { type: RelationshipType; issueId: number; }
+
+export interface Issue {
+  id: number;
+  projectId: number;
+  sprintId: number | null;
+  category: string;
+  summary: string;
+  description: RichText;
+  stepsToReproduce: RichText;
+  additionalInfo: RichText;
+  status: Status;
+  resolution: Resolution;
+  priority: Priority;
+  severity: Severity;
+  reproducibility: Reproducibility;
+  platform: string;
+  os: string;
+  osBuild: string;
+  productVersion: string;
+  targetVersion: string;
+  fixedInVersion: string;
+  reporterId: number;
+  handlerId: number | null;
+  viewState: ViewState;
+  sticky: boolean;
+  tags: string[];
+  monitorIds: number[];
+  relationships: Relationship[];
+  dueDate: string | null;
+  estimate: number | null;
+  storyPoints: number | null;
+  customFields: Record<number, string>;
+  created: string;
+  updated: string;
+}
+
+export interface Comment {
+  id: number;
+  issueId: number;
+  authorId: number;
+  body: RichText;
+  private: boolean;
+  timeSpent: number;
+  created: string;
+  edited: string | null;
+}
+
+export interface Attachment {
+  id: number;
+  /** 0 while pending (uploaded from a form that hasn't been saved yet). */
+  issueId: number;
+  /** Set when the file was uploaded from a note; still listed in the ticket documents. */
+  commentId: number | null;
+  name: string;
+  description: string;
+  mimeType: string;
+  size: number;
+  uploaderId: number;
+  date: string;
+  version: number;
+  /** Id of the attachment this one replaced (older versions stay, hidden under the current one). */
+  previousVersionId: number | null;
+  /** Latest version flag; false once replaced. */
+  current: boolean;
+  /** IndexedDB key of the file content (clones share the original blob). */
+  blobId: number;
+}
+
+export type HistoryType =
+  | 'created' | 'field' | 'note_added' | 'note_edited' | 'note_deleted' | 'attachment_added'
+  | 'attachment_deleted' | 'attachment_renamed' | 'attachment_version' | 'relationship_added'
+  | 'relationship_deleted' | 'tag_added' | 'tag_removed' | 'monitor_added' | 'monitor_removed' | 'cloned';
+
+export interface HistoryEntry {
+  id: number;
+  issueId: number;
+  userId: number;
+  date: string;
+  type: HistoryType;
+  field: string;
+  old: string;
+  new: string;
+}
+
+export interface FilterCriteria {
+  projectIds: number[];
+  includeSubprojects: boolean;
+  sprintIds: (number | 'none')[];
+  categories: string[];
+  statuses: Status[];
+  hideStatus: Status | '';
+  resolutions: Resolution[];
+  priorities: Priority[];
+  severities: Severity[];
+  reproducibility: Reproducibility[];
+  reporterIds: number[];
+  /** 0 = unassigned, -1 = current user */
+  handlerIds: number[];
+  monitorId: number | null;
+  tags: string[];
+  tagsMode: 'any' | 'all';
+  targetVersion: string;
+  fixedInVersion: string;
+  platform: string;
+  os: string;
+  viewState: ViewState | '';
+  createdFrom: string;
+  createdTo: string;
+  updatedFrom: string;
+  updatedTo: string;
+  dueFrom: string;
+  dueTo: string;
+  overdueOnly: boolean;
+  hasAttachments: boolean | null;
+  relationship: RelationshipType | '';
+  customFieldId: number | null;
+  customFieldValue: string;
+  text: string;
+  searchNotes: boolean;
+}
+
+export type SortDir = 'asc' | 'desc';
+export interface SortKey { column: ColumnId; dir: SortDir; }
+
+export type ColumnId =
+  | 'id' | 'project' | 'category' | 'summary' | 'status' | 'resolution' | 'priority' | 'severity'
+  | 'reproducibility' | 'reporter' | 'handler' | 'sprint' | 'targetVersion' | 'fixedInVersion' | 'tags'
+  | 'attachments' | 'notes' | 'created' | 'updated' | 'dueDate' | 'storyPoints' | 'viewState';
+
+export interface SavedFilter {
+  id: number;
+  name: string;
+  ownerId: number;
+  shared: boolean;
+  projectId: number | null;
+  isDefault: boolean;
+  criteria: Partial<FilterCriteria>;
+  columns: ColumnId[];
+  sort: SortKey[];
+}
+
+export interface Notification {
+  id: number;
+  userId: number;
+  issueId: number;
+  actorId: number;
+  type: NotifyEvent;
+  text: string;
+  read: boolean;
+  date: string;
+}
+
+export type CustomFieldType = 'string' | 'number' | 'list' | 'checkbox' | 'date';
+export interface CustomField {
+  id: number;
+  name: string;
+  type: CustomFieldType;
+  options: string[];
+  required: boolean;
+  defaultValue: string;
+}
+
+export interface WorkflowConfig {
+  transitions: Record<Status, Status[]>;
+  thresholds: Record<Action, AccessLevel>;
+  statusColors: Record<Status, string>;
+  resolvedStatus: Status;
+  autoAssignStatus: boolean;
+  boardColumns: Status[];
+  wipLimits: Partial<Record<Status, number>>;
+}
+
+export interface Db {
+  schema: number;
+  seq: number;
+  users: User[];
+  projects: Project[];
+  sprints: Sprint[];
+  issues: Issue[];
+  comments: Comment[];
+  attachments: Attachment[];
+  history: HistoryEntry[];
+  filters: SavedFilter[];
+  notifications: Notification[];
+  customFields: CustomField[];
+  workflow: WorkflowConfig;
+}

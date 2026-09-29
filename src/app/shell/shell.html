@@ -1,0 +1,168 @@
+<!-- Menu bar -->
+<nav class="menubar" [attr.aria-label]="'nav.menu' | t">
+  <span class="brand"><span class="logo"><app-icon name="bug" [size]="12" /></span>BugTracker</span>
+  <button type="button" class="menu-btn" #mFile popovertarget="m-file">{{ 'menu.file' | t }}</button>
+  <button type="button" class="menu-btn" #mEdit popovertarget="m-edit">{{ 'menu.edit' | t }}</button>
+  <button type="button" class="menu-btn" #mView popovertarget="m-view">{{ 'menu.view' | t }}</button>
+  <button type="button" class="menu-btn" #mIssue popovertarget="m-issue">{{ 'menu.issue' | t }}</button>
+  <button type="button" class="menu-btn" #mAdmin popovertarget="m-admin" [hidden]="!isAdmin()">{{ 'menu.admin' | t }}</button>
+  <button type="button" class="menu-btn" #mHelp popovertarget="m-help">{{ 'menu.help' | t }}</button>
+</nav>
+
+<div popover id="m-file" [appMenu]="mFile">
+  <button type="button" routerLink="/report" [disabled]="!perm.can('report')"><app-icon name="bug" />{{ 'nav.report' | t }}<span class="kbd">N</span></button>
+  @if (perm.can('manageProject')) { <button type="button" routerLink="/projects" [queryParams]="{ new: 1 }"><app-icon name="database" />{{ 'projects.new' | t }}</button> }
+  @if (perm.can('manageSprints')) { <button type="button" routerLink="/sprints" [queryParams]="{ new: 1 }"><app-icon name="zap" />{{ 'sprints.new' | t }}</button> }
+  <hr />
+  <button type="button" routerLink="/issues" [queryParams]="{ export: 'csv' }"><app-icon name="download" />{{ 'menu.exportCsv' | t }}</button>
+  <button type="button" routerLink="/settings"><app-icon name="import" />{{ 'menu.importExport' | t }}</button>
+  <button type="button" (click)="print()"><app-icon name="printer" />{{ 'menu.print' | t }}<span class="kbd">Ctrl+P</span></button>
+  <hr />
+  <button type="button" (click)="auth.logout()"><app-icon name="logout" />{{ 'menu.logout' | t }}</button>
+</div>
+<div popover id="m-edit" [appMenu]="mEdit">
+  <button type="button" (click)="palette().open()"><app-icon name="search" />{{ 'menu.find' | t }}<span class="kbd">Ctrl+K</span></button>
+  <button type="button" (click)="focusSearch()"><app-icon name="search" />{{ 'menu.quickSearch' | t }}<span class="kbd">/</span></button>
+  <hr />
+  <button type="button" routerLink="/account"><app-icon name="sliders" />{{ 'menu.preferences' | t }}</button>
+</div>
+<div popover id="m-view" [appMenu]="mView">
+  <div class="menu-label">{{ 'prefs.theme' | t }}</div>
+  @for (th of themes; track th) {
+    <button type="button" (click)="auth.updatePrefs({ theme: th })"><span class="check">{{ prefs()?.theme === th ? '✓' : '' }}</span>{{ 'theme.' + th | t }}</button>
+  }
+  <div class="menu-label">{{ 'prefs.density' | t }}</div>
+  @for (d of densities; track d) {
+    <button type="button" (click)="auth.updatePrefs({ density: d })"><span class="check">{{ prefs()?.density === d ? '✓' : '' }}</span>{{ 'density.' + d | t }}</button>
+  }
+  <div class="menu-label">{{ 'prefs.language' | t }}</div>
+  @for (l of languages; track l.code) {
+    <button type="button" (click)="auth.updatePrefs({ language: l.code })"><span class="check">{{ i18n.lang() === l.code ? '✓' : '' }}</span>{{ l.name }}</button>
+  }
+  <hr />
+  <button type="button" (click)="ws.navigatorOpen.set(!ws.navigatorOpen())"><span class="check">{{ ws.navigatorOpen() ? '✓' : '' }}</span>{{ 'menu.navigator' | t }}</button>
+  <button type="button" (click)="ws.statusbarOpen.set(!ws.statusbarOpen())"><span class="check">{{ ws.statusbarOpen() ? '✓' : '' }}</span>{{ 'menu.statusbar' | t }}</button>
+</div>
+<div popover id="m-issue" [appMenu]="mIssue">
+  <button type="button" routerLink="/report" [disabled]="!perm.can('report')"><app-icon name="plus" />{{ 'nav.report' | t }}</button>
+  <button type="button" routerLink="/issues" [queryParams]="{ handlerIds: -1 }"><app-icon name="user" />{{ 'menu.myIssues' | t }}</button>
+  <button type="button" routerLink="/issues" [queryParams]="{ reporterIds: -1, hideStatus: '' }"><app-icon name="edit" />{{ 'menu.reportedByMe' | t }}</button>
+  <button type="button" routerLink="/issues" [queryParams]="{ monitorId: -1 }"><app-icon name="eye" />{{ 'menu.monitored' | t }}</button>
+  <hr />
+  <button type="button" routerLink="/board"><app-icon name="board" />{{ 'nav.board' | t }}</button>
+  <button type="button" routerLink="/sprints"><app-icon name="zap" />{{ 'nav.sprints' | t }}</button>
+  <button type="button" routerLink="/roadmap"><app-icon name="map" />{{ 'nav.roadmap' | t }}</button>
+  <button type="button" routerLink="/changelog"><app-icon name="file-text" />{{ 'nav.changelog' | t }}</button>
+  <button type="button" routerLink="/calendar"><app-icon name="calendar" />{{ 'nav.calendar' | t }}</button>
+  <button type="button" routerLink="/summary"><app-icon name="chart" />{{ 'nav.summary' | t }}</button>
+</div>
+<div popover id="m-admin" [appMenu]="mAdmin">
+    @if (perm.can('manageUsers')) { <button type="button" routerLink="/users"><app-icon name="users" />{{ 'nav.users' | t }}</button> }
+    <button type="button" routerLink="/projects"><app-icon name="database" />{{ 'nav.projects' | t }}</button>
+    @if (perm.can('manageWorkflow')) { <button type="button" routerLink="/admin/workflow"><app-icon name="workflow" />{{ 'nav.workflow' | t }}</button> }
+    @if (perm.can('manageCustomFields')) { <button type="button" routerLink="/admin/custom-fields"><app-icon name="columns" />{{ 'nav.customFields' | t }}</button> }
+    @if (perm.can('manageTags')) { <button type="button" routerLink="/admin/tags"><app-icon name="tag" />{{ 'nav.tags' | t }}</button> }
+    <hr />
+    <button type="button" routerLink="/settings"><app-icon name="sliders" />{{ 'nav.settings' | t }}</button>
+  </div>
+<div popover id="m-help" [appMenu]="mHelp">
+  <button type="button" (click)="shortcuts().open()"><app-icon name="keyboard" />{{ 'menu.shortcuts' | t }}<span class="kbd">?</span></button>
+  <button type="button" (click)="about().open()"><app-icon name="info" />{{ 'menu.about' | t }}</button>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar" role="toolbar" [attr.aria-label]="'nav.toolbar' | t">
+  <button type="button" class="icon-btn" (click)="ws.navigatorOpen.set(!ws.navigatorOpen())" [attr.aria-pressed]="ws.navigatorOpen()" [title]="'menu.navigator' | t">
+    <app-icon name="sidebar" /></button>
+  <span class="tb-sep"></span>
+  <a class="icon-btn" routerLink="/" [title]="'nav.home' | t"><app-icon name="home" /></a>
+  <a class="icon-btn" routerLink="/issues" [title]="'nav.issues' | t"><app-icon name="list" /></a>
+  @if (perm.can('report')) { <a class="icon-btn" routerLink="/report" [title]="'nav.report' | t"><app-icon name="plus" /></a> }
+  <a class="icon-btn" routerLink="/board" [title]="'nav.board' | t"><app-icon name="board" /></a>
+  <a class="icon-btn" routerLink="/sprints" [title]="'nav.sprints' | t"><app-icon name="zap" /></a>
+  <a class="icon-btn" routerLink="/roadmap" [title]="'nav.roadmap' | t"><app-icon name="map" /></a>
+  <a class="icon-btn" routerLink="/calendar" [title]="'nav.calendar' | t"><app-icon name="calendar" /></a>
+  <a class="icon-btn" routerLink="/summary" [title]="'nav.summary' | t"><app-icon name="chart" /></a>
+  <span class="tb-sep"></span>
+  <label class="sr-only" for="tb-project">{{ 'common.project' | t }}</label>
+  <select id="tb-project" [ngModel]="ws.projectId() ?? ''" (ngModelChange)="ws.projectId.set($event === '' ? null : +$event)" [title]="'common.project' | t">
+    <option value="">{{ 'projects.all' | t }}</option>
+    @for (p of ws.visibleProjects(); track p.id) { <option [value]="p.id">{{ p.parentId ? '» ' : '' }}{{ p.name }}</option> }
+  </select>
+  <span class="tb-sep"></span>
+  <form class="search" role="search" (submit)="$event.preventDefault(); search(q.value); q.value = ''">
+    <app-icon name="search" />
+    <input #q type="search" [placeholder]="'toolbar.search' | t" [attr.aria-label]="'toolbar.search' | t" />
+  </form>
+  <span class="spacer"></span>
+  <button type="button" class="icon-btn" (click)="toggleTheme()" [title]="'prefs.theme' | t">
+    <app-icon [name]="isDark() ? 'sun' : 'moon'" /></button>
+  <button type="button" class="icon-btn" #bell popovertarget="m-bell" [title]="'nav.notifications' | t">
+    <app-icon name="bell" />@if (notif.unread()) { <span class="count">{{ notif.unread() }}</span> }</button>
+  <button type="button" class="btn ghost" #userBtn popovertarget="m-user">
+    <app-avatar [user]="auth.user()" /><span>{{ auth.user()?.username }}</span><app-icon name="chevron-down" [size]="10" /></button>
+</div>
+
+<div popover id="m-bell" [appMenu]="bell" placement="below-end" style="width:360px">
+  <div class="row" style="padding:4px 8px"><b>{{ 'nav.notifications' | t }}</b><span class="spacer"></span>
+    <button type="button" class="link-btn" data-keep-open (click)="notif.markAllRead()">{{ 'notifications.markAll' | t }}</button></div>
+  <hr />
+  @for (n of notif.mine().slice(0, 8); track n.id) {
+    <button type="button" (click)="openNotification(n.id, n.issueId)" [style.font-weight]="n.read ? 'normal' : '600'" style="white-space:normal;align-items:flex-start">
+      <app-icon [name]="notifIcon[n.type]" />
+      <span style="flex:1;min-width:0"><span>{{ 'notifications.type.' + n.type | t: { user: store.userMap().get(n.actorId)?.username } }}</span>
+        <span class="small ellipsis" style="display:block;opacity:.8">#{{ n.issueId }} {{ n.text }}</span></span>
+      <span class="kbd">{{ n.date | relTime }}</span>
+    </button>
+  } @empty { <div class="menu-label" style="padding:10px">{{ 'notifications.none' | t }}</div> }
+  <hr /><button type="button" routerLink="/notifications">{{ 'notifications.viewAll' | t }}</button>
+</div>
+<div popover id="m-user" [appMenu]="userBtn" placement="below-end">
+  <div class="menu-label">{{ auth.user()?.realName }} · {{ 'access.' + accessName() | t }}</div>
+  <button type="button" routerLink="/account"><app-icon name="user" />{{ 'nav.account' | t }}</button>
+  <button type="button" routerLink="/issues" [queryParams]="{ handlerIds: -1 }"><app-icon name="list" />{{ 'menu.myIssues' | t }}</button>
+  <button type="button" routerLink="/notifications"><app-icon name="bell" />{{ 'nav.notifications' | t }}</button>
+  <hr />
+  <button type="button" (click)="auth.logout()"><app-icon name="logout" />{{ 'menu.logout' | t }}</button>
+</div>
+
+<!-- Workbench -->
+<div class="workbench">
+  @if (ws.navigatorOpen()) { <app-navigator /> }
+  <main class="view editor-area">
+    <app-editor-tabs />
+    <div class="editor-content" id="main"><router-outlet /></div>
+  </main>
+</div>
+
+<!-- Status bar -->
+@if (ws.statusbarOpen()) {
+  <footer class="statusbar" role="status">
+    <span class="sb-item"><app-icon name="database" [size]="11" />{{ ws.project()?.name ?? ('projects.all' | t) }}</span>
+    <span class="sb-item"><app-icon name="user" [size]="11" />{{ auth.user()?.username }} ({{ 'access.' + accessName() | t }})</span>
+    <span class="sb-item">{{ 'statusbar.open' | t: { open: counts().open, total: counts().total } }}</span>
+    @if (counts().overdue) { <span class="sb-item danger-text">{{ 'statusbar.overdue' | t: { count: counts().overdue } }}</span> }
+    <span class="spacer"></span>
+    @if (store.saveError(); as err) { <span class="sb-item error" [title]="err"><app-icon name="alert" [size]="11" />{{ 'statusbar.saveError' | t }}</span> }
+    @else if (store.lastSaved(); as saved) { <span class="sb-item"><app-icon name="save" [size]="11" />{{ 'statusbar.saved' | t: { time: (saved.toISOString() | fmtDate: 'time') } }}</span> }
+    <span class="sb-item">{{ i18n.lang().toUpperCase() }}</span>
+    <span class="sb-item">{{ 'theme.' + (prefs()?.theme ?? 'system') | t }}</span>
+  </footer>
+}
+
+<app-command-palette />
+
+<app-dialog #shortcutsDlg [title]="'menu.shortcuts' | t" size="narrow">
+  <table class="grid plain">
+    <tbody>
+      @for (s of shortcutList; track s[0]) { <tr><td style="width:110px"><kbd>{{ s[0] }}</kbd></td><td>{{ s[1] | t }}</td></tr> }
+    </tbody>
+  </table>
+  <button footer type="button" class="btn" (click)="shortcuts().close()">{{ 'common.close' | t }}</button>
+</app-dialog>
+
+<app-dialog #aboutDlg [title]="'menu.about' | t" size="narrow">
+  <p><b>BugTracker</b> — {{ 'about.text' | t }}</p>
+  <p class="muted">Angular · TipTap · SCSS · {{ 'about.storage' | t }}</p>
+  <button footer type="button" class="btn" (click)="about().close()">{{ 'common.close' | t }}</button>
+</app-dialog>

@@ -1,0 +1,114 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="board" [size]="18" />{{ 'nav.board' | t }}</h1>
+    @if (sprint(); as s) { <a class="muted" [routerLink]="['/sprints', s.id]">{{ s.name }} — {{ s.goal }}</a> }
+    <div class="actions">
+      <select [ngModel]="sprintValue()" (ngModelChange)="sprintSel.set($event)" [attr.aria-label]="'fields.sprintId' | t">
+        <option value="">{{ 'board.allIssues' | t }}</option>
+        <option value="none">{{ 'sprints.backlog' | t }}</option>
+        @for (s of sprints(); track s.id) { <option [value]="s.id">{{ store.projectMap().get(s.projectId)?.key }} · {{ s.name }}{{ s.state === 'active' ? ' ●' : '' }}</option> }
+      </select>
+      <select [ngModel]="lane()" (ngModelChange)="lane.set($event)" [attr.aria-label]="'board.swimlanes' | t">
+        <option value="none">{{ 'board.noLanes' | t }}</option>
+        <option value="handler">{{ 'board.byHandler' | t }}</option>
+        <option value="priority">{{ 'board.byPriority' | t }}</option>
+      </select>
+      <button type="button" class="btn" #colsBtn popovertarget="board-cols"><app-icon name="columns" />{{ 'grid.columns' | t }}</button>
+      <div popover id="board-cols" [appMenu]="colsBtn" placement="below-end">
+        @for (s of statuses; track s) {
+          <button type="button" data-keep-open (click)="toggleColumn(s)"><span class="check">{{ columns().includes(s) ? '✓' : '' }}</span>{{ 'status.' + s | t }}</button>
+        }
+      </div>
+    </div>
+  </header>
+
+  <div class="row">
+    <input type="search" style="flex:0 1 260px" [placeholder]="'board.filter' | t" [ngModel]="text()" (ngModelChange)="text.set($event)" />
+    <button type="button" class="btn sm" [attr.aria-pressed]="onlyMine()" (click)="onlyMine.set(!onlyMine())"><app-icon name="user" />{{ 'board.mine' | t }}</button>
+    <button type="button" class="btn sm" [attr.aria-pressed]="onlyUnassigned()" (click)="onlyUnassigned.set(!onlyUnassigned())"><app-icon name="inbox" />{{ 'common.unassigned' | t }}</button>
+    <span class="muted small">{{ 'board.count' | t: { count: issues().length, points: totalPoints() } }}</span>
+    <span class="spacer"></span>
+    <span class="hint">{{ 'board.dragHint' | t }}</span>
+  </div>
+
+  @for (l of lanes(); track l.key) {
+    @if (lane() !== 'none') {
+      <div class="lane-title">
+        @if (lane() === 'handler') { <app-user [id]="l.key === 0 ? null : +l.key" /> } @else { <app-priority [priority]="$any(l.key)" /> }
+        <span class="badge">{{ l.issues.length }}</span>
+      </div>
+    }
+    <div class="board">
+      @for (col of columns(); track col) {
+        <section class="board-col" [attr.data-status]="col" [class.drop-ok]="dropTarget() === l.key + ':' + col && canDrop(col)"
+          [class.drop-no]="dropTarget() === l.key + ':' + col && !canDrop(col)"
+          (dragover)="over($event, l.key, col)" (dragleave)="dropTarget.set('')" (drop)="drop($event, col, l.key)" [attr.aria-label]="'status.' + col | t">
+          <header class="col-head">
+            <span class="status-dot"></span>{{ 'status.' + col | t }}
+            <span class="n muted" [class.over]="wip(col) && byStatus(l.issues, col).length > wip(col)!">
+              {{ byStatus(l.issues, col).length }}{{ wip(col) ? ' / ' + wip(col) : '' }}</span>
+          </header>
+          <div class="cards">
+            @for (i of byStatus(l.issues, col); track i.id) {
+              <article class="card" [attr.data-priority]="i.priority" draggable="true" tabindex="0" [class.dragging]="dragging()?.id === i.id"
+                (dragstart)="start($event, i)" (dragend)="dragging.set(null); dropTarget.set('')" (click)="preview(i)" (keydown.enter)="preview(i)"
+                (contextmenu)="moveMenu($event, i)" (keydown.m)="moveMenu($event, i)">
+                <div class="meta"><span class="mono">{{ store.issueKey(i) }}</span><app-priority [priority]="i.priority" [label]="false" />
+                  <app-severity [severity]="i.severity" /><span class="spacer"></span>
+                  @if (i.storyPoints) { <span class="badge outline" [title]="'fields.storyPoints' | t">{{ i.storyPoints }}</span> }
+                </div>
+                <div class="summary">{{ i.summary }}</div>
+                <div class="meta">
+                  @for (t of i.tags; track t) { <span class="tag">{{ t }}</span> }
+                  <span class="spacer"></span>
+                  @if (i.dueDate) { <span [class.overdue]="overdue(i)"><app-icon name="calendar" [size]="10" /> {{ i.dueDate | fmtDate: 'short' }}</span> }
+                  @if (store.noteCounts().get(i.id); as n) { <span><app-icon name="message" [size]="10" /> {{ n }}</span> }
+                  <app-avatar [user]="i.handlerId ? store.userMap().get(i.handlerId) : null" />
+                </div>
+              </article>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+</div>
+
+<!-- Keyboard / context alternative to drag & drop -->
+<div popover appMenu #moveMenuRef="appMenu">
+  @if (menuIssue(); as i) {
+    <div class="menu-label">{{ 'board.moveTo' | t }}</div>
+    @for (s of transitionsOf(i); track s) { <button type="button" (click)="move(i, s)"><span class="status-dot" [attr.data-status]="s"></span>{{ 'status.' + s | t }}</button> }
+    <hr /><button type="button" (click)="preview(i)">{{ 'actions.open' | t }}</button>
+  }
+</div>
+
+<app-dialog #drawer size="drawer" [title]="current() ? store.issueKey(current()!) : ''">
+  @if (current(); as i) {
+    <h2>{{ i.summary }}</h2>
+    <div class="row"><app-status [status]="i.status" /><app-priority [priority]="i.priority" /><app-severity [severity]="i.severity" /></div>
+    <dl class="kv" style="grid-template-columns:minmax(110px,max-content) 1fr">
+      <dt>{{ 'fields.handlerId' | t }}</dt>
+      <dd>@if (perm.can('assign', i.projectId)) { <app-user-select [value]="i.handlerId" (valueChange)="actions.assign([i.id], $event)" [minLevel]="40" /> }
+          @else { <app-user [id]="i.handlerId" /> }</dd>
+      <dt>{{ 'fields.reporterId' | t }}</dt><dd><app-user [id]="i.reporterId" /></dd>
+      <dt>{{ 'fields.category' | t }}</dt><dd>{{ i.category }}</dd>
+      <dt>{{ 'fields.sprintId' | t }}</dt><dd>{{ i.sprintId ? store.sprintMap().get(i.sprintId)?.name : ('sprints.backlog' | t) }}</dd>
+      <dt>{{ 'fields.dueDate' | t }}</dt><dd>{{ i.dueDate | fmtDate: 'date' }}</dd>
+      <dt>{{ 'fields.storyPoints' | t }}</dt><dd>{{ i.storyPoints ?? '—' }}</dd>
+    </dl>
+    <app-rich-view [content]="i.description" [empty]="'issue.noDescription' | t" />
+  }
+  <ng-container footer>
+    @if (current(); as i) {
+      @if (transitionsOf(i).length) {
+        <select #ds (change)="move(i, $any(ds.value)); ds.value = ''" [attr.aria-label]="'actions.changeStatus' | t">
+          <option value="">{{ 'actions.changeStatus' | t }}…</option>
+          @for (s of transitionsOf(i); track s) { <option [value]="s">{{ 'status.' + s | t }}</option> }
+        </select>
+      }
+      <span class="spacer"></span>
+      <a class="btn primary" [routerLink]="['/issues', i.id]" (click)="drawerRef().close()">{{ 'actions.open' | t }}</a>
+    }
+  </ng-container>
+</app-dialog>

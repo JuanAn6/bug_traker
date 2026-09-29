@@ -1,0 +1,48 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="columns" [size]="18" />{{ 'nav.customFields' | t }}</h1>
+    <div class="actions"><button type="button" class="btn primary" (click)="open()"><app-icon name="plus" />{{ 'customFields.new' | t }}</button></div>
+  </header>
+  <div class="grid-wrap">
+    <table class="grid plain">
+      <thead><tr><th>{{ 'common.name' | t }}</th><th>{{ 'customFields.type' | t }}</th><th>{{ 'customFields.options' | t }}</th>
+        <th>{{ 'customFields.required' | t }}</th><th>{{ 'nav.projects' | t }}</th><th class="num">{{ 'customFields.used' | t }}</th><th></th></tr></thead>
+      <tbody>
+        @for (f of store.customFields(); track f.id) {
+          <tr>
+            <td><b>{{ f.name }}</b></td><td>{{ 'cfType.' + f.type | t }}</td><td>{{ f.options.join(', ') }}</td>
+            <td>{{ (f.required ? 'common.yes' : 'common.no') | t }}</td>
+            <td>{{ projectsOf(f.id) }}</td><td class="num">{{ usage(f.id) }}</td>
+            <td class="nowrap">
+              <button type="button" class="icon-btn sm" (click)="open(f)" [title]="'common.edit' | t"><app-icon name="edit" /></button>
+              <button type="button" class="icon-btn sm" (click)="remove(f)" [title]="'common.delete' | t"><app-icon name="trash" /></button>
+            </td>
+          </tr>
+        } @empty { <tr><td colspan="7"><app-empty icon="columns" [text]="'customFields.none' | t" /></td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-dialog #dlg [title]="(draft.id ? 'customFields.edit' : 'customFields.new') | t" size="narrow">
+  <form id="cf-form" class="col" (submit)="$event.preventDefault(); save()">
+    <label class="field"><span class="label required">{{ 'common.name' | t }}</span><input name="n" [(ngModel)]="draft.name" required maxlength="40" /></label>
+    <label class="field"><span class="label">{{ 'customFields.type' | t }}</span>
+      <select name="t" [(ngModel)]="draft.type">@for (t of types; track t) { <option [value]="t">{{ 'cfType.' + t | t }}</option> }</select></label>
+    @if (draft.type === 'list') {
+      <label class="field"><span class="label required">{{ 'customFields.options' | t }}</span>
+        <textarea name="o" rows="4" [(ngModel)]="draft.optionsText" [placeholder]="'customFields.optionsHint' | t"></textarea></label>
+    }
+    <label class="field"><span class="label">{{ 'customFields.default' | t }}</span><input name="d" [(ngModel)]="draft.defaultValue" /></label>
+    <label class="check"><input name="r" type="checkbox" [(ngModel)]="draft.required" />{{ 'customFields.required' | t }}</label>
+    <fieldset><legend>{{ 'nav.projects' | t }}</legend>
+      @for (p of store.projects(); track p.id) {
+        <label class="check"><input type="checkbox" [checked]="draft.projectIds.includes(p.id)" (change)="toggleProject(p.id)" />{{ p.name }}</label>
+      }
+    </fieldset>
+  </form>
+  <ng-container footer>
+    <button type="button" class="btn" (click)="dlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="submit" form="cf-form" class="btn primary" [disabled]="!draft.name.trim() || (draft.type === 'list' && !draft.optionsText.trim())">{{ 'common.save' | t }}</button>
+  </ng-container>
+</app-dialog>

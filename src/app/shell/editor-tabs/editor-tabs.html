@@ -1,0 +1,19 @@
+@for (t of tabs.tabs(); track t.key; let i = $index) {
+  <div class="etab" role="tab" tabindex="0" [class.active]="t.key === tabs.activeKey()" [class.dirty]="t.dirty"
+    [attr.aria-selected]="t.key === tabs.activeKey()" [title]="t.title ?? (t.titleKey | t)"
+    (click)="go(t)" (keydown.enter)="go(t)" (auxclick)="$event.button === 1 && tabs.close(t.key)" (contextmenu)="context($event, t)"
+    draggable="true" (dragstart)="from = i" (dragover)="$event.preventDefault(); over.set(i)" (dragleave)="over.set(-1)"
+    (drop)="drop(i)" [class.drag-over]="over() === i">
+    <app-icon [name]="t.icon" [size]="12" />
+    <span class="title">{{ t.title ?? (t.titleKey | t) }}</span>
+    <button type="button" class="icon-btn sm close" (click)="$event.stopPropagation(); tabs.close(t.key)" [attr.aria-label]="'common.close' | t">
+      <app-icon name="x" [size]="10" /></button>
+  </div>
+}
+<div popover appMenu #ctx="appMenu">
+  @if (ctxTab(); as t) {
+    <button type="button" (click)="tabs.close(t.key)">{{ 'tabs.close' | t }}<span class="kbd">Alt+W</span></button>
+    <button type="button" (click)="tabs.closeOthers(t.key)">{{ 'tabs.closeOthers' | t }}</button>
+    <button type="button" (click)="tabs.closeAll()">{{ 'tabs.closeAll' | t }}</button>
+  }
+</div>

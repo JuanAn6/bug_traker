@@ -1,0 +1,64 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="database" [size]="18" />{{ 'nav.projects' | t }}</h1>
+    <div class="actions">
+      <input type="search" [placeholder]="'common.search' | t" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+      <label class="check"><input type="checkbox" [ngModel]="showDisabled()" (ngModelChange)="showDisabled.set($event)" />{{ 'projects.showDisabled' | t }}</label>
+      @if (perm.can('manageProject')) { <button type="button" class="btn primary" (click)="openNew()"><app-icon name="plus" />{{ 'projects.new' | t }}</button> }
+    </div>
+  </header>
+
+  <div class="grid-wrap">
+    <table class="grid plain">
+      <thead><tr>
+        <th>{{ 'common.name' | t }}</th><th>{{ 'projects.key' | t }}</th><th>{{ 'projects.status' | t }}</th><th>{{ 'fields.viewState' | t }}</th>
+        <th>{{ 'projects.parent' | t }}</th><th class="num">{{ 'projects.openIssues' | t }}</th><th class="num">{{ 'projects.members' | t }}</th>
+        <th>{{ 'fields.created' | t }}</th><th></th>
+      </tr></thead>
+      <tbody>
+        @for (r of rows(); track r.p.id) {
+          <tr [class.muted]="!r.p.enabled">
+            <td><a [routerLink]="['/projects', r.p.id]"><b>{{ r.p.name }}</b></a>@if (!r.p.enabled) { <span class="badge">{{ 'projects.disabled' | t }}</span> }</td>
+            <td class="mono">{{ r.p.key }}</td>
+            <td>{{ 'projectStatus.' + r.p.status | t }}</td>
+            <td>@if (r.p.viewState === 'private') { <app-icon name="lock" [size]="11" /> }{{ 'viewState.' + r.p.viewState | t }}</td>
+            <td>{{ r.p.parentId ? store.projectMap().get(r.p.parentId)?.name : '' }}</td>
+            <td class="num"><a routerLink="/issues" [queryParams]="{ projectIds: r.p.id }">{{ r.open }} / {{ r.total }}</a></td>
+            <td class="num">{{ r.p.members.length }}</td>
+            <td>{{ r.p.created | fmtDate: 'date' }}</td>
+            <td class="nowrap">
+              <button type="button" class="icon-btn sm" (click)="ws.projectId.set(r.p.id)" [title]="'projects.select' | t"><app-icon name="target" /></button>
+              @if (perm.can('manageProject', r.p.id)) {
+                <a class="icon-btn sm" [routerLink]="['/projects', r.p.id]" [title]="'common.edit' | t"><app-icon name="edit" /></a>
+                <button type="button" class="icon-btn sm" (click)="remove(r.p)" [title]="'common.delete' | t"><app-icon name="trash" /></button>
+              }
+            </td>
+          </tr>
+        } @empty { <tr><td colspan="9"><app-empty icon="database" [text]="'projects.none' | t" /></td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-dialog #newDlg [title]="'projects.new' | t">
+  <form id="new-project" class="form-grid" (submit)="$event.preventDefault(); create()">
+    <label for="np-name" class="required">{{ 'common.name' | t }}</label>
+    <input id="np-name" name="name" [(ngModel)]="draft.name" (ngModelChange)="suggestKey()" required maxlength="80" />
+    <label for="np-key" class="required">{{ 'projects.key' | t }}</label>
+    <div class="col" style="gap:2px"><input id="np-key" name="key" [(ngModel)]="draft.key" (input)="keyEdited = true" required pattern="[A-Za-z][A-Za-z0-9]{1,9}" maxlength="10" style="text-transform:uppercase;width:140px" />
+      @if (keyError()) { <span class="error-text">{{ keyError() }}</span> } @else { <span class="hint">{{ 'projects.keyHint' | t }}</span> }</div>
+    <label for="np-parent">{{ 'projects.parent' | t }}</label>
+    <select id="np-parent" name="parent" [(ngModel)]="draft.parentId"><option [ngValue]="null">—</option>
+      @for (p of ws.visibleProjects(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }</select>
+    <label for="np-status">{{ 'projects.status' | t }}</label>
+    <select id="np-status" name="status" [(ngModel)]="draft.status">@for (s of statuses; track s) { <option [value]="s">{{ 'projectStatus.' + s | t }}</option> }</select>
+    <label for="np-vs">{{ 'fields.viewState' | t }}</label>
+    <select id="np-vs" name="vs" [(ngModel)]="draft.viewState"><option value="public">{{ 'viewState.public' | t }}</option><option value="private">{{ 'viewState.private' | t }}</option></select>
+    <label class="top">{{ 'common.description' | t }}</label>
+    <app-rich-editor name="desc" [(ngModel)]="draft.description" minHeight="80px" />
+  </form>
+  <ng-container footer>
+    <button type="button" class="btn" (click)="newDlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="submit" form="new-project" class="btn primary" [disabled]="!draft.name.trim() || !!keyError()">{{ 'common.create' | t }}</button>
+  </ng-container>
+</app-dialog>

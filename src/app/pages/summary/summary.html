@@ -1,0 +1,101 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="chart" [size]="18" />{{ 'nav.summary' | t }}</h1>
+    <span class="muted">{{ ws.project()?.name ?? ('projects.all' | t) }}</span>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi"><span class="v">{{ list().length }}</span><span class="l">{{ 'summary.total' | t }}</span></div>
+    <div class="kpi warning"><span class="v">{{ open().length }}</span><span class="l">{{ 'summary.open' | t }}</span></div>
+    <div class="kpi success"><span class="v">{{ list().length - open().length }}</span><span class="l">{{ 'summary.resolved' | t }}</span></div>
+    <div class="kpi brand"><span class="v">{{ avgDays() }}</span><span class="l">{{ 'summary.avgDays' | t }}</span></div>
+    <div class="kpi danger"><span class="v">{{ reopenRate() }}%</span><span class="l">{{ 'summary.reopenRate' | t }}</span></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title"><app-icon name="chart" />{{ 'summary.createdVsResolved' | t }}</div>
+    <div class="panel-body">
+      <app-line-chart [labels]="trend().labels" [label]="'summary.createdVsResolved' | t"
+        [series]="[{ name: ('summary.created' | t), color: 'var(--chart-2)', values: trend().created },
+                   { name: ('summary.resolved' | t), color: 'var(--chart-1)', values: trend().done }]" />
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel"><div class="panel-title">{{ 'summary.byStatus' | t }}</div>
+      <div class="panel-body"><app-bar-chart [data]="byStatus()" [label]="'summary.byStatus' | t" /></div></section>
+    <section class="panel"><div class="panel-title">{{ 'summary.byPriority' | t }}</div>
+      <div class="panel-body"><app-bar-chart [data]="byPriority()" [label]="'summary.byPriority' | t" /></div></section>
+    <section class="panel"><div class="panel-title">{{ 'summary.bySeverity' | t }}</div>
+      <div class="panel-body"><app-bar-chart [data]="bySeverity()" [label]="'summary.bySeverity' | t" /></div></section>
+    <section class="panel"><div class="panel-title">{{ 'summary.byCategory' | t }}</div>
+      <div class="panel-body"><app-bar-chart [data]="byCategory()" [label]="'summary.byCategory' | t" /></div></section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-title">{{ 'summary.byProject' | t }}</div>
+    <div class="panel-body flush grid-wrap" style="border:0">
+      <table class="grid plain">
+        <thead><tr><th>{{ 'fields.projectId' | t }}</th>@for (s of statuses; track s) { <th class="num"><app-status [status]="s" /></th> }<th class="num">{{ 'common.total' | t }}</th></tr></thead>
+        <tbody>
+          @for (r of byProject(); track r.name) {
+            <tr><td><a routerLink="/issues" [queryParams]="{ projectIds: r.id, hideStatus: '' }">{{ r.name }}</a></td>
+              @for (c of r.counts; track $index) { <td class="num">{{ c || '' }}</td> }<td class="num"><b>{{ r.total }}</b></td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-title">{{ 'summary.byHandler' | t }}</div>
+      <div class="panel-body flush grid-wrap" style="border:0">
+        <table class="grid plain">
+          <thead><tr><th>{{ 'fields.handlerId' | t }}</th><th class="num">{{ 'summary.open' | t }}</th><th class="num">{{ 'summary.resolved' | t }}</th><th class="num">%</th></tr></thead>
+          <tbody>
+            @for (r of byHandler(); track r.id) {
+              <tr><td><app-user [id]="r.id || null" /></td>
+                <td class="num"><a routerLink="/issues" [queryParams]="{ handlerIds: r.id }">{{ r.open }}</a></td><td class="num">{{ r.resolved }}</td><td class="num">{{ r.pct }}%</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-title">{{ 'summary.byReporter' | t }}</div>
+      <div class="panel-body flush grid-wrap" style="border:0">
+        <table class="grid plain">
+          <thead><tr><th>{{ 'fields.reporterId' | t }}</th><th class="num">{{ 'summary.total' | t }}</th><th class="num">{{ 'summary.open' | t }}</th></tr></thead>
+          <tbody>
+            @for (r of byReporter(); track r.id) {
+              <tr><td><app-user [id]="r.id" /></td><td class="num">{{ r.total }}</td><td class="num">{{ r.open }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-title">{{ 'summary.resolutions' | t }}</div>
+      <div class="panel-body"><app-bar-chart [data]="byResolution()" [label]="'summary.resolutions' | t" /></div>
+    </section>
+    <section class="panel">
+      <div class="panel-title">{{ 'summary.longestOpen' | t }}</div>
+      <ul class="panel-body timeline">
+        @for (i of longestOpen(); track i.id) {
+          <li><a class="mono" [routerLink]="['/issues', i.id]">{{ store.issueKey(i) }}</a><span class="ellipsis" style="flex:1">{{ i.summary }}</span>
+            <span class="when">{{ 'summary.days' | t: { count: age(i) } }}</span></li>
+        }
+      </ul>
+    </section>
+    <section class="panel">
+      <div class="panel-title">{{ 'summary.mostActive' | t }}</div>
+      <ul class="panel-body timeline">
+        @for (r of mostActive(); track r.issue.id) {
+          <li><a class="mono" [routerLink]="['/issues', r.issue.id]">{{ store.issueKey(r.issue) }}</a><span class="ellipsis" style="flex:1">{{ r.issue.summary }}</span>
+            <span class="when">{{ 'summary.changes' | t: { count: r.n } }}</span></li>
+        }
+      </ul>
+    </section>
+  </div>
+</div>

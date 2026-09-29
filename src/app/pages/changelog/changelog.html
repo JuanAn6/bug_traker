@@ -1,0 +1,29 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="file-text" [size]="18" />{{ 'nav.changelog' | t }}</h1>
+    <div class="actions"><a class="btn" routerLink="/roadmap"><app-icon name="map" />{{ 'nav.roadmap' | t }}</a></div>
+  </header>
+  @for (g of groups(); track g.project.id) {
+    <h2 class="row"><app-icon name="database" />{{ g.project.name }}</h2>
+    @for (v of g.versions; track v.name) {
+      <section class="panel">
+        <div class="panel-title"><app-icon name="flag" />{{ v.name }}
+          <span class="muted small">{{ v.date ? (v.date | fmtDate: 'date') : '' }}</span>
+          <span class="actions"><span class="badge success">{{ 'changelog.count' | t: { count: v.total } }}</span></span></div>
+        <div class="panel-body col categories">
+          @if (v.description) { <p class="muted">{{ v.description }}</p> }
+          @for (c of v.categories; track c.name) {
+            <div><b>{{ c.name }}</b>
+              <ul>
+                @for (i of c.issues; track i.id) {
+                  <li><a class="mono" [routerLink]="['/issues', i.id]">{{ store.issueKey(i) }}</a> {{ i.summary }}
+                    <span class="muted small">({{ 'resolution.' + i.resolution | t }})</span></li>
+                }
+              </ul>
+            </div>
+          } @empty { <span class="muted">{{ 'changelog.empty' | t }}</span> }
+        </div>
+      </section>
+    } @empty { <p class="muted">{{ 'changelog.none' | t }}</p> }
+  } @empty { <app-empty icon="file-text" [text]="'changelog.none' | t" /> }
+</div>

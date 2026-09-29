@@ -1,0 +1,387 @@
+@if (issue(); as i) {
+  <div class="page">
+    <!-- Header -->
+    <header class="page-header">
+      <h1 style="flex:1 1 420px;min-width:0">
+        <span class="mono muted">{{ key() }}</span>
+        @if (editingSummary()) {
+          <input #sum style="flex:1;font-size:inherit;height:30px" [value]="i.summary" maxlength="128" (keydown.enter)="saveSummary(sum.value)"
+            (keydown.escape)="editingSummary.set(false)" (blur)="saveSummary(sum.value)" [attr.aria-label]="'fields.summary' | t" />
+        } @else {
+          <span [class.rich]="canEdit()" [class.clickable]="canEdit()" (click)="canEdit() && editingSummary.set(true)" [title]="canEdit() ? ('common.clickToEdit' | t) : ''">{{ i.summary }}</span>
+        }
+        <app-status [status]="i.status" />
+        @if (i.sticky) { <span class="badge warning"><app-icon name="pin" [size]="10" />{{ 'issue.sticky' | t }}</span> }
+        @if (i.viewState === 'private') { <span class="badge"><app-icon name="lock" [size]="10" />{{ 'viewState.private' | t }}</span> }
+      </h1>
+      <div class="actions">
+        <button type="button" class="icon-btn" [disabled]="!neighbor(-1)" (click)="go(-1)" [title]="('common.previous' | t) + ' ([)'"><app-icon name="chevron-left" /></button>
+        <button type="button" class="icon-btn" [disabled]="!neighbor(1)" (click)="go(1)" [title]="('common.next' | t) + ' (])'"><app-icon name="chevron-right" /></button>
+      </div>
+    </header>
+
+    <!-- Action toolbar -->
+    <div class="row tight no-print">
+      @if (canEdit()) { <a class="btn" [routerLink]="['/issues', i.id, 'edit']"><app-icon name="edit" />{{ 'common.edit' | t }}</a> }
+      @if (perm.can('assign', i.projectId)) {
+        <button type="button" class="btn" #assignBtn popovertarget="assign-menu"><app-icon name="user" />{{ 'actions.assign' | t }}<app-icon name="chevron-down" [size]="10" /></button>
+        <div popover id="assign-menu" [appMenu]="assignBtn">
+          <button type="button" (click)="actions.assign([i.id], auth.me().id)">{{ 'actions.assignToMe' | t }}<span class="kbd">A</span></button>
+          @if (i.reporterId !== auth.me().id) { <button type="button" (click)="actions.assign([i.id], i.reporterId)">{{ 'actions.assignToReporter' | t }}</button> }
+          <button type="button" (click)="actions.assign([i.id], null)">{{ 'actions.unassign' | t }}</button>
+          <hr />
+          @for (u of assignable(); track u.id) {
+            <button type="button" (click)="actions.assign([i.id], u.id)"><span class="check">{{ i.handlerId === u.id ? '✓' : '' }}</span>{{ u.realName }}</button>
+          }
+        </div>
+      }
+      @if (transitions().length) {
+        <select #st (change)="openStatus($any(st.value)); st.value = ''" [attr.aria-label]="'actions.changeStatus' | t">
+          <option value="">{{ 'actions.changeStatus' | t }}…</option>
+          @for (s of transitions(); track s) { <option [value]="s">{{ 'status.' + s | t }}</option> }
+        </select>
+      }
+      <button type="button" class="btn" (click)="actions.setMonitor([i.id], auth.me().id, !monitoring())" [attr.aria-pressed]="monitoring()">
+        <app-icon name="eye" />{{ (monitoring() ? 'actions.unmonitor' : 'actions.monitor') | t }}</button>
+      <button type="button" class="btn" #more popovertarget="issue-more"><app-icon name="more" />{{ 'common.more' | t }}</button>
+      <div popover id="issue-more" [appMenu]="more">
+        @if (canEdit()) { <button type="button" (click)="actions.toggleSticky(i.id)"><app-icon name="pin" />{{ (i.sticky ? 'actions.unstick' : 'actions.stick') | t }}</button> }
+        @if (perm.can('report', i.projectId)) { <button type="button" (click)="cloneDlg.open()"><app-icon name="copy" />{{ 'actions.clone' | t }}</button> }
+        @if (perm.can('move', i.projectId)) { <button type="button" (click)="moveTarget = i.projectId; moveDlg.open()"><app-icon name="external" />{{ 'actions.move' | t }}</button> }
+        <button type="button" (click)="copyLink()"><app-icon name="link" />{{ 'actions.copyLink' | t }}</button>
+        <button type="button" (click)="print()"><app-icon name="printer" />{{ 'menu.print' | t }}</button>
+        @if (perm.can('delete', i.projectId)) { <hr /><button type="button" (click)="remove()"><app-icon name="trash" />{{ 'common.delete' | t }}</button> }
+      </div>
+      @if (overdue()) { <span class="badge danger"><app-icon name="alert" [size]="10" />{{ 'issue.overdue' | t }}</span> }
+    </div>
+
+    <!-- Details (MantisBT layout) -->
+    <dl class="kv">
+      <dt>{{ 'fields.id' | t }}</dt><dd class="mono">{{ key() }}</dd>
+      <dt>{{ 'fields.projectId' | t }}</dt><dd><a routerLink="/issues" [queryParams]="{ projectIds: i.projectId }">{{ project()?.name }}</a></dd>
+      <dt>{{ 'fields.category' | t }}</dt><dd>{{ i.category }}</dd>
+
+      <dt>{{ 'fields.created' | t }}</dt><dd [title]="i.created | fmtDate">{{ i.created | fmtDate }}</dd>
+      <dt>{{ 'fields.updated' | t }}</dt><dd [title]="i.updated | fmtDate">{{ i.updated | relTime }}</dd>
+      <dt>{{ 'fields.viewState' | t }}</dt><dd>{{ 'viewState.' + i.viewState | t }}</dd>
+
+      <dt>{{ 'fields.reporterId' | t }}</dt><dd><app-user [id]="i.reporterId" /></dd>
+      <dt>{{ 'fields.handlerId' | t }}</dt><dd><app-user [id]="i.handlerId" /></dd>
+      <dt>{{ 'fields.dueDate' | t }}</dt><dd [class.overdue]="overdue()">{{ i.dueDate ? (i.dueDate | fmtDate: 'date') : '—' }}</dd>
+
+      <dt>{{ 'fields.priority' | t }}</dt><dd><app-priority [priority]="i.priority" /></dd>
+      <dt>{{ 'fields.severity' | t }}</dt><dd><app-severity [severity]="i.severity" /></dd>
+      <dt>{{ 'fields.reproducibility' | t }}</dt><dd>{{ 'reproducibility.' + i.reproducibility | t }}</dd>
+
+      <dt>{{ 'fields.status' | t }}</dt><dd><app-status [status]="i.status" /></dd>
+      <dt>{{ 'fields.resolution' | t }}</dt><dd>{{ 'resolution.' + i.resolution | t }}</dd>
+      <dt>{{ 'fields.sprintId' | t }}</dt>
+      <dd>@if (sprint(); as s) { <a [routerLink]="['/sprints', s.id]">{{ s.name }}</a> } @else { <span class="muted">{{ 'sprints.backlog' | t }}</span> }</dd>
+
+      <dt>{{ 'fields.platform' | t }}</dt><dd>{{ i.platform }}</dd>
+      <dt>{{ 'fields.os' | t }}</dt><dd>{{ i.os }} {{ i.osBuild }}</dd>
+      <dt>{{ 'fields.productVersion' | t }}</dt><dd>{{ i.productVersion }}</dd>
+
+      <dt>{{ 'fields.targetVersion' | t }}</dt><dd>{{ i.targetVersion }}</dd>
+      <dt>{{ 'fields.fixedInVersion' | t }}</dt><dd>{{ i.fixedInVersion }}</dd>
+      <dt>{{ 'fields.storyPoints' | t }}</dt><dd>{{ i.storyPoints ?? '—' }}</dd>
+
+      <dt>{{ 'fields.estimate' | t }}</dt><dd>{{ i.estimate !== null ? i.estimate + ' h' : '—' }}</dd>
+      <dt>{{ 'issue.timeSpent' | t }}</dt><dd>{{ i18n.minutes(timeTotal()) }}</dd>
+      <dt>{{ 'fields.monitors' | t }}</dt><dd>{{ i.monitorIds.length }}</dd>
+
+      @for (cf of customFields(); track cf.id) {
+        <dt>{{ cf.name }}</dt><dd class="wide">{{ cf.type === 'checkbox' ? ((i.customFields[cf.id] ? 'common.yes' : 'common.no') | t) : (i.customFields[cf.id] || '—') }}</dd>
+      }
+
+      <dt>{{ 'fields.tags' | t }}</dt>
+      <dd class="wide"><app-tag-input [value]="i.tags" [readonly]="!perm.can('manageTags', i.projectId)"
+        (added)="actions.addTag([i.id], $event)" (removed)="actions.removeTag([i.id], $event)" /></dd>
+    </dl>
+
+    <!-- Rich text sections -->
+    @for (f of richFields; track f) {
+      @if (!isEmpty(i[f]) || editingField() === f || (f === 'description' && canEdit())) {
+        <section class="panel">
+          <div class="panel-title">{{ 'fields.' + f | t }}
+            @if (canEdit() && editingField() !== f) {
+              <span class="actions"><button type="button" class="icon-btn sm" (click)="editRich(f)" [title]="'common.edit' | t"><app-icon name="edit" /></button></span>
+            }
+          </div>
+          <div class="panel-body">
+            @if (editingField() === f) {
+              <app-rich-editor [(ngModel)]="richDraft" [autofocus]="true" [uploader]="ticketUploader" (submit)="saveRich(f)" />
+              <div class="form-actions">
+                <button type="button" class="btn" (click)="editingField.set(null)">{{ 'common.cancel' | t }}</button>
+                <button type="button" class="btn primary" (click)="saveRich(f)">{{ 'common.save' | t }}</button>
+              </div>
+            } @else {
+              <app-rich-view [content]="i[f]" [empty]="'issue.noDescription' | t" (imageClick)="previewAttachment($event)" (dblclick)="canEdit() && editRich(f)" />
+            }
+          </div>
+        </section>
+      }
+    }
+
+    <div class="grid-2">
+      <!-- Relationships -->
+      <section class="panel">
+        <div class="panel-title"><app-icon name="link" />{{ 'issue.relationships' | t }}<span class="badge">{{ i.relationships.length }}</span></div>
+        <div class="panel-body col">
+          @for (r of relations(); track r.issueId) {
+            <div class="row nowrap">
+              <span class="muted" style="width:120px">{{ 'relationship.' + r.type | t }}</span>
+              @if (r.target; as t) {
+                <a [routerLink]="['/issues', t.id]" class="mono">{{ store.issueKey(t) }}</a>
+                <app-status [status]="t.status" /><span class="ellipsis" style="flex:1">{{ t.summary }}</span>
+                <app-user [id]="t.handlerId" [short]="true" empty="common.dash" />
+              } @else { <span class="muted">#{{ r.issueId }} ({{ 'errors.noAccess' | t }})</span> }
+              @if (perm.can('manageRelationships', i.projectId)) {
+                <button type="button" class="icon-btn sm" (click)="actions.removeRelationship(i.id, r.issueId)" [title]="'common.remove' | t"><app-icon name="x" /></button>
+              }
+            </div>
+          } @empty { <span class="muted">{{ 'issue.noRelationships' | t }}</span> }
+          @if (perm.can('manageRelationships', i.projectId)) {
+            <form class="row tight" (submit)="$event.preventDefault(); addRelation()">
+              <select name="rt" [(ngModel)]="relType" [attr.aria-label]="'issue.relationType' | t">
+                @for (r of relationshipTypes; track r) { <option [value]="r">{{ 'relationship.' + r | t }}</option> }
+              </select>
+              <input name="rid" type="number" min="1" style="width:90px" [(ngModel)]="relTarget" [placeholder]="'issue.issueId' | t" [attr.aria-label]="'issue.issueId' | t" />
+              <button type="submit" class="btn sm" [disabled]="!relTarget">{{ 'common.add' | t }}</button>
+              @if (relError()) { <span class="error-text">{{ relError() }}</span> }
+            </form>
+          }
+        </div>
+      </section>
+
+      <!-- Monitors -->
+      <section class="panel">
+        <div class="panel-title"><app-icon name="eye" />{{ 'fields.monitors' | t }}<span class="badge">{{ i.monitorIds.length }}</span></div>
+        <div class="panel-body col">
+          <div class="chips">
+            @for (uid of i.monitorIds; track uid) {
+              <span class="chip"><app-user [id]="uid" [short]="true" />
+                @if (uid === auth.me().id || perm.can('monitorOthers', i.projectId)) {
+                  <button type="button" (click)="actions.setMonitor([i.id], uid, false)" [attr.aria-label]="'common.remove' | t"><app-icon name="x" [size]="10" /></button>
+                }
+              </span>
+            } @empty { <span class="muted">{{ 'issue.noMonitors' | t }}</span> }
+          </div>
+          @if (perm.can('monitorOthers', i.projectId)) {
+            <div class="row tight"><span class="muted small">{{ 'issue.addMonitor' | t }}</span>
+              <app-user-select [value]="null" (valueChange)="$event && actions.setMonitor([i.id], $event, true)" noneLabel="common.choose" /></div>
+          }
+        </div>
+      </section>
+    </div>
+
+    <!-- Activity -->
+    <section>
+      <div class="tabs" role="tablist">
+        @for (t of activityTabs; track t.id) {
+          <button type="button" role="tab" [attr.aria-selected]="tab() === t.id" (click)="tab.set(t.id)">
+            <app-icon [name]="t.icon" />{{ 'issue.tab.' + t.id | t }}
+            @if (t.id === 'notes') { <span class="badge">{{ notes().length }}</span> }
+            @if (t.id === 'documents') { <span class="badge">{{ docCount() }}</span> }
+            @if (t.id === 'history') { <span class="badge">{{ history().length }}</span> }
+          </button>
+        }
+      </div>
+
+      <div role="tabpanel">
+        @switch (tab()) {
+          @case ('notes') {
+            <div class="col">
+              <div class="row small">
+                <span class="spacer"></span>
+                <button type="button" class="link-btn" (click)="auth.updatePrefs({ notesNewestFirst: !newestFirst() })">
+                  {{ (newestFirst() ? 'issue.newestFirst' : 'issue.oldestFirst') | t }} ⇅</button>
+              </div>
+              @for (n of notes(); track n.id) {
+                <article class="note" [id]="'note-' + n.id" [class.private]="n.private" [class.highlight]="highlight() === n.id">
+                  <div class="note-meta">
+                    <app-user [id]="n.authorId" />
+                    <a class="mono" [href]="'#note-' + n.id" (click)="$event.preventDefault(); scrollToNote(n.id)">#{{ n.id }}</a>
+                    <span class="muted" [title]="n.created | fmtDate">{{ n.created | fmtDate }}</span>
+                    @if (n.edited) { <span class="muted">{{ 'issue.edited' | t: { when: (n.edited | relTime) } }}</span> }
+                    @if (n.private) { <span class="badge warning"><app-icon name="lock" [size]="10" />{{ 'viewState.private' | t }}</span> }
+                    @if (n.timeSpent) { <span class="badge info"><app-icon name="clock" [size]="10" />{{ i18n.minutes(n.timeSpent) }}</span> }
+                  </div>
+                  <div class="note-body">
+                    @if (editingNote() === n.id) {
+                      <app-rich-editor [(ngModel)]="noteEditDraft" [autofocus]="true" [uploader]="noteEditUploader" (submit)="saveNoteEdit(n)" />
+                      <div class="row">
+                        <label class="check"><input type="checkbox" [(ngModel)]="noteEditPrivate" />{{ 'issue.privateNote' | t }}</label>
+                        <label class="row tight">{{ 'issue.timeSpentMin' | t }}<input type="number" min="0" style="width:70px" [(ngModel)]="noteEditTime" /></label>
+                        <span class="spacer"></span>
+                        <button type="button" class="btn" (click)="editingNote.set(null)">{{ 'common.cancel' | t }}</button>
+                        <button type="button" class="btn primary" (click)="saveNoteEdit(n)">{{ 'common.save' | t }}</button>
+                      </div>
+                    } @else {
+                      <app-rich-view [content]="n.body" (imageClick)="previewAttachment($event)" />
+                    }
+                    @if (noteFiles().get(n.id); as fl) {
+                      <div class="chips">
+                        @for (a of fl; track a.id) {
+                          <button type="button" class="file-chip" (click)="previewAttachment(a.id)" [title]="a.name">
+                            <app-icon name="paperclip" [size]="11" /><span class="v">{{ a.name }}</span><span class="muted">{{ a.size | bytes }}</span></button>
+                        }
+                      </div>
+                    }
+                    <div class="note-actions no-print">
+                      @if (perm.can('addNote', i.projectId)) {
+                        <button type="button" class="btn ghost sm" (click)="quote(n)"><app-icon name="message" />{{ 'issue.quote' | t }}</button>
+                      }
+                      @if (perm.canEditNote(n, i.projectId)) {
+                        <button type="button" class="btn ghost sm" (click)="editNote(n)"><app-icon name="edit" />{{ 'common.edit' | t }}</button>
+                        <button type="button" class="btn ghost sm" (click)="deleteNote(n)"><app-icon name="trash" />{{ 'common.delete' | t }}</button>
+                      }
+                    </div>
+                  </div>
+                </article>
+              } @empty { <app-empty icon="message" [text]="'issue.noNotes' | t" /> }
+
+              @if (perm.can('addNote', i.projectId)) {
+                <section class="panel no-print" (appFileDrop)="addNoteFiles($event)">
+                  <div class="panel-title"><app-icon name="message" />{{ 'issue.addNote' | t }}</div>
+                  <div class="panel-body col">
+                    <app-rich-editor #composer [(ngModel)]="noteDraft" [placeholder]="'issue.notePlaceholder' | t" [uploader]="noteUploader" (submit)="addNote()" />
+                    @if (pendingFiles().length) {
+                      <div class="chips">
+                        @for (a of pendingFiles(); track a.id) {
+                          <span class="file-chip"><app-icon name="paperclip" [size]="11" /><span class="v">{{ a.name }}</span>
+                            <button type="button" class="icon-btn sm" (click)="dropPending(a.id)" [attr.aria-label]="'common.remove' | t"><app-icon name="x" [size]="10" /></button></span>
+                        }
+                      </div>
+                    }
+                    <div class="row">
+                      @if (perm.can('uploadFile', i.projectId)) {
+                        <button type="button" class="btn" (click)="nf.click()"><app-icon name="paperclip" />{{ 'issue.attachFiles' | t }}</button>
+                        <input #nf type="file" multiple hidden (change)="addNoteFiles([].slice.call(nf.files)); nf.value = ''" />
+                      }
+                      <label class="check"><input type="checkbox" [(ngModel)]="notePrivate" />{{ 'issue.privateNote' | t }}</label>
+                      <label class="row tight">{{ 'issue.timeSpentMin' | t }}<input type="number" min="0" style="width:70px" [(ngModel)]="noteTime" /></label>
+                      <span class="spacer"></span>
+                      <span class="hint">Ctrl+Enter</span>
+                      <button type="button" class="btn primary" [disabled]="isEmpty(noteDraft) && !pendingFiles().length" (click)="addNote()">{{ 'issue.addNote' | t }}</button>
+                    </div>
+                  </div>
+                </section>
+              }
+            </div>
+          }
+          @case ('documents') {
+            <app-issue-documents [issueId]="i.id" [projectId]="i.projectId" (gotoNote)="scrollToNote($event)" />
+          }
+          @case ('history') {
+            <div class="grid-wrap">
+              <table class="grid plain wrap">
+                <thead><tr><th>{{ 'history.date' | t }}</th><th>{{ 'history.user' | t }}</th><th>{{ 'history.field' | t }}</th><th>{{ 'history.change' | t }}</th></tr></thead>
+                <tbody>
+                  @for (h of history(); track h.id) {
+                    <tr>
+                      <td class="nowrap" [title]="h.date | fmtDate">{{ h.date | fmtDate }}</td>
+                      <td><app-user [id]="h.userId" [short]="true" /></td>
+                      <td>{{ fmt.field(h) }}</td>
+                      <td>@if (h.type === 'created') { {{ 'history.created' | t }} } @else {
+                        <span class="muted">{{ fmt.value(h, h.old) }}</span>@if (h.old && h.new) { → }<span>{{ fmt.value(h, h.new) }}</span> }</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          @case ('timeline') {
+            <ul class="timeline panel panel-body">
+              @for (e of timeline(); track e.key) {
+                <li>
+                  <app-icon [name]="e.icon" />
+                  <app-user [id]="e.userId" [short]="true" />
+                  <span style="flex:1">{{ e.text }}</span>
+                  <span class="when" [title]="e.date | fmtDate">{{ e.date | relTime }}</span>
+                </li>
+              }
+            </ul>
+          }
+          @case ('time') {
+            <div class="grid-2">
+              <div class="grid-wrap">
+                <table class="grid plain">
+                  <thead><tr><th>{{ 'history.user' | t }}</th><th class="num">{{ 'issue.entries' | t }}</th><th class="num">{{ 'issue.timeSpent' | t }}</th></tr></thead>
+                  <tbody>
+                    @for (r of timeByUser(); track r.userId) {
+                      <tr><td><app-user [id]="r.userId" /></td><td class="num">{{ r.entries }}</td><td class="num">{{ i18n.minutes(r.minutes) }}</td></tr>
+                    } @empty { <tr><td colspan="3" class="muted center">{{ 'issue.noTime' | t }}</td></tr> }
+                  </tbody>
+                  <tfoot><tr><th>{{ 'common.total' | t }}</th><th></th><th class="num">{{ i18n.minutes(timeTotal()) }}</th></tr></tfoot>
+                </table>
+              </div>
+              <div class="panel"><div class="panel-body col">
+                <div>{{ 'fields.estimate' | t }}: <b>{{ i.estimate !== null ? i.estimate + ' h' : '—' }}</b></div>
+                @if (i.estimate) {
+                  <div class="progress-line"><progress [value]="timeTotal()" [max]="i.estimate * 60"></progress>
+                    <span class="pct">{{ Math.round(timeTotal() / (i.estimate * 60) * 100) }}%</span></div>
+                }
+                <p class="hint">{{ 'issue.timeHint' | t }}</p>
+              </div></div>
+            </div>
+          }
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- Status change dialog -->
+  <app-dialog #statusDlg [title]="'actions.changeStatusTo' | t: { status: ('status.' + targetStatus() | t) }">
+    <div class="form-grid">
+      <label>{{ 'fields.status' | t }}</label><div><app-status [status]="i.status" /> → <app-status [status]="targetStatus()" /></div>
+      @if (resolving()) {
+        <label for="st-res">{{ 'fields.resolution' | t }}</label>
+        <select id="st-res" [(ngModel)]="stResolution">@for (r of resolutions; track r) { <option [value]="r">{{ 'resolution.' + r | t }}</option> }</select>
+        <label for="st-fix">{{ 'fields.fixedInVersion' | t }}</label>
+        <select id="st-fix" [(ngModel)]="stFixed"><option value="">—</option>
+          @for (v of project()?.versions ?? []; track v.name) { <option [value]="v.name">{{ v.name }}</option> }</select>
+      }
+      @if (targetStatus() === 'assigned' || !resolving()) {
+        <label>{{ 'fields.handlerId' | t }}</label>
+        <app-user-select [(value)]="stHandler" [minLevel]="40" />
+      }
+      <label class="top">{{ 'issue.addNote' | t }}</label>
+      <app-rich-editor [(ngModel)]="stNote" minHeight="70px" [placeholder]="'issue.statusNotePlaceholder' | t" (submit)="applyStatus()" />
+      <label></label>
+      <div class="row">
+        <label class="check"><input type="checkbox" [(ngModel)]="stPrivate" />{{ 'issue.privateNote' | t }}</label>
+        <label class="row tight">{{ 'issue.timeSpentMin' | t }}<input type="number" min="0" style="width:70px" [(ngModel)]="stTime" /></label>
+      </div>
+    </div>
+    <ng-container footer>
+      <button type="button" class="btn" (click)="statusDlg.close()">{{ 'common.cancel' | t }}</button>
+      <button type="button" class="btn primary" (click)="applyStatus()">{{ 'actions.changeStatus' | t }}</button>
+    </ng-container>
+  </app-dialog>
+
+  <app-dialog #cloneDlg [title]="'actions.clone' | t" size="narrow">
+    <p>{{ 'issue.cloneHint' | t }}</p>
+    <label class="check"><input type="checkbox" [(ngModel)]="cloneNotes" />{{ 'issue.copyNotes' | t }}</label>
+    <label class="check"><input type="checkbox" [(ngModel)]="cloneFiles" />{{ 'issue.copyFiles' | t }}</label>
+    <ng-container footer>
+      <button type="button" class="btn" (click)="cloneDlg.close()">{{ 'common.cancel' | t }}</button>
+      <button type="button" class="btn primary" (click)="doClone()">{{ 'actions.clone' | t }}</button>
+    </ng-container>
+  </app-dialog>
+
+  <app-dialog #moveDlg [title]="'actions.move' | t" size="narrow">
+    <label class="field"><span class="label">{{ 'issue.moveTo' | t }}</span>
+      <select [(ngModel)]="moveTarget">@for (p of ws.visibleProjects(); track p.id) { <option [ngValue]="p.id" [disabled]="!perm.can('report', p.id)">{{ p.name }}</option> }</select></label>
+    <p class="hint">{{ 'issue.moveHint' | t }}</p>
+    <ng-container footer>
+      <button type="button" class="btn" (click)="moveDlg.close()">{{ 'common.cancel' | t }}</button>
+      <button type="button" class="btn primary" [disabled]="moveTarget === i.projectId" (click)="actions.move([i.id], moveTarget); moveDlg.close()">{{ 'actions.move' | t }}</button>
+    </ng-container>
+  </app-dialog>
+
+  <!-- Hidden documents instance used to preview images clicked in notes/descriptions -->
+  <app-issue-documents #docPreview [issueId]="i.id" [projectId]="i.projectId" [previewOnly]="true" />
+} @else {
+  <div class="page"><app-empty icon="bug" [text]="'errors.issueNotFound' | t: { id: id() }"><a class="btn" routerLink="/issues">{{ 'nav.issues' | t }}</a></app-empty></div>
+}

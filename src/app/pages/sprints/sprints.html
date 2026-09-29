@@ -1,0 +1,50 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="zap" [size]="18" />{{ 'nav.sprints' | t }}</h1>
+    <span class="muted">{{ ws.project()?.name ?? ('projects.all' | t) }}</span>
+    <div class="actions">
+      <a class="btn" routerLink="/board"><app-icon name="board" />{{ 'nav.board' | t }}</a>
+      @if (perm.can('manageSprints')) { <button type="button" class="btn primary" (click)="dlg().open()"><app-icon name="plus" />{{ 'sprints.new' | t }}</button> }
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    @for (s of tabs; track s) {
+      <button type="button" role="tab" [attr.aria-selected]="state() === s" (click)="state.set(s)">
+        {{ (s === 'all' ? 'common.all' : 'sprintState.' + s) | t }} <span class="badge">{{ count(s) }}</span></button>
+    }
+  </div>
+
+  <div class="grid-wrap">
+    <table class="grid plain">
+      <thead><tr>
+        <th>{{ 'common.name' | t }}</th><th>{{ 'fields.projectId' | t }}</th><th>{{ 'sprints.state' | t }}</th><th>{{ 'sprints.dates' | t }}</th>
+        <th class="num">{{ 'nav.issues' | t }}</th><th style="width:200px">{{ 'sprints.progress' | t }}</th><th class="num">{{ 'sprints.pointsCapacity' | t }}</th><th></th>
+      </tr></thead>
+      <tbody>
+        @for (r of rows(); track r.s.id) {
+          <tr>
+            <td><a [routerLink]="['/sprints', r.s.id]"><b>{{ r.s.name }}</b></a><div class="small muted">{{ r.s.goal }}</div></td>
+            <td>{{ store.projectMap().get(r.s.projectId)?.name }}</td>
+            <td><span class="badge" [class.success]="r.s.state === 'active'" [class.info]="r.s.state === 'planned'">{{ 'sprintState.' + r.s.state | t }}</span></td>
+            <td class="nowrap">{{ r.s.start | fmtDate: 'date' }} – {{ r.s.end | fmtDate: 'date' }}</td>
+            <td class="num">{{ r.done }}/{{ r.total }}</td>
+            <td><div class="progress-line"><progress [value]="r.doneP" [max]="r.totalP || 1"></progress><span class="pct">{{ r.pct }}%</span></div></td>
+            <td class="num" [class.danger-text]="r.totalP > r.s.capacity">{{ r.totalP }} / {{ r.s.capacity }}</td>
+            <td class="nowrap">
+              <a class="icon-btn sm" [routerLink]="['/sprints', r.s.id, 'board']" [title]="'nav.board' | t"><app-icon name="board" /></a>
+              @if (perm.can('manageSprints', r.s.projectId)) {
+                @if (r.s.state === 'planned') { <button type="button" class="icon-btn sm" (click)="svc.start(r.s.id)" [title]="'sprints.startSprint' | t"><app-icon name="play" /></button> }
+                <button type="button" class="icon-btn sm" (click)="dlg().open(r.s)" [title]="'common.edit' | t"><app-icon name="edit" /></button>
+                <button type="button" class="icon-btn sm" (click)="remove(r.s)" [title]="'common.delete' | t"><app-icon name="trash" /></button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr><td colspan="8"><app-empty icon="zap" [text]="'sprints.none' | t" /></td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+<app-sprint-dialog (saved)="router.navigate(['/sprints', $event])" />

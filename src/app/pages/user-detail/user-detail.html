@@ -1,0 +1,43 @@
+@if (user(); as u) {
+  <div class="page">
+    <header class="page-header">
+      <h1><app-avatar [user]="u" [large]="true" />{{ u.realName }} <span class="muted">&#64;{{ u.username }}</span></h1>
+      <span class="badge" [class.success]="u.enabled">{{ (u.enabled ? 'users.enabled' : 'users.disabled') | t }}</span>
+      <div class="actions">
+        @if (perm.can('manageUsers')) { <a class="btn" routerLink="/users"><app-icon name="users" />{{ 'nav.users' | t }}</a> }
+      </div>
+    </header>
+    <dl class="kv">
+      <dt>{{ 'users.email' | t }}</dt><dd><a [href]="'mailto:' + u.email">{{ u.email }}</a></dd>
+      <dt>{{ 'users.accessLevel' | t }}</dt><dd>{{ 'access.' + names[u.accessLevel] | t }}</dd>
+      <dt>{{ 'users.lastVisit' | t }}</dt><dd>{{ u.lastVisit ? (u.lastVisit | relTime) : ('users.never' | t) }}</dd>
+      <dt>{{ 'fields.created' | t }}</dt><dd>{{ u.created | fmtDate: 'date' }}</dd>
+      <dt>{{ 'projects.members' | t }}</dt>
+      <dd class="wide">@for (m of memberships(); track m.p.id) { <span class="chip"><span class="v">{{ m.p.name }} · {{ 'access.' + names[m.level] | t }}</span></span> }
+        @empty { <span class="muted">—</span> }</dd>
+    </dl>
+    <section class="kpis">
+      <div class="kpi brand"><span class="v">{{ stats().assigned }}</span><span class="l">{{ 'users.openAssigned' | t }}</span></div>
+      <div class="kpi"><span class="v">{{ stats().reported }}</span><span class="l">{{ 'users.reported' | t }}</span></div>
+      <div class="kpi success"><span class="v">{{ stats().resolved }}</span><span class="l">{{ 'users.resolvedByThem' | t }}</span></div>
+      <div class="kpi warning"><span class="v">{{ i18n.minutes(stats().time) }}</span><span class="l">{{ 'issue.timeSpent' | t }}</span></div>
+    </section>
+    <div class="tabs" role="tablist">
+      @for (t of tabList; track t) { <button type="button" role="tab" [attr.aria-selected]="tab() === t" (click)="tab.set(t)">{{ 'users.tab.' + t | t }}</button> }
+    </div>
+    <div role="tabpanel">
+      @switch (tab()) {
+        @case ('activity') {
+          <ul class="timeline panel panel-body">
+            @for (h of activity(); track h.id) {
+              <li><a class="mono" [routerLink]="['/issues', h.issueId]">#{{ h.issueId }}</a><span style="flex:1">{{ fmt.line(h) }}</span><span class="when">{{ h.date | relTime }}</span></li>
+            } @empty { <li><app-empty icon="history" [text]="'home.noActivity' | t" /></li> }
+          </ul>
+        }
+        @default { <app-issue-table [issues]="lists()[tab()]" [columns]="columns" [pageSize]="15" /> }
+      }
+    </div>
+  </div>
+} @else {
+  <div class="page"><app-empty icon="user" [text]="'errors.notFound' | t" /></div>
+}

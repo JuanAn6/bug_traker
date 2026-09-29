@@ -1,0 +1,34 @@
+@if (series().length > 1) {
+  <div class="legend">
+    @for (s of series(); track s.name) { <span><i [style.background]="s.color"></i>{{ s.name }}</span> }
+  </div>
+}
+<svg class="chart" [attr.viewBox]="'0 0 ' + W + ' ' + H" role="img" [attr.aria-label]="label()"
+  (pointermove)="hover($event)" (pointerleave)="idx.set(-1)">
+  @for (t of ticks(); track t) {
+    <line class="grid-line" [attr.x1]="L" [attr.x2]="W - R" [attr.y1]="y(t)" [attr.y2]="y(t)" />
+    <text [attr.x]="L - 5" [attr.y]="y(t) + 3" text-anchor="end">{{ t }}</text>
+  }
+  <line class="axis" [attr.x1]="L" [attr.x2]="W - R" [attr.y1]="H - B" [attr.y2]="H - B" />
+  @for (l of xLabels(); track l.i) {
+    <text [attr.x]="x(l.i)" [attr.y]="H - B + 13" text-anchor="middle">{{ l.text }}</text>
+  }
+  @if (idx() >= 0) {
+    <line class="axis" [attr.x1]="x(idx())" [attr.x2]="x(idx())" [attr.y1]="T" [attr.y2]="H - B" stroke-dasharray="3 3" />
+  }
+  @for (s of series(); track s.name) {
+    <path [attr.d]="path(s)" fill="none" [attr.stroke]="s.color" stroke-width="2" stroke-linejoin="round"
+      stroke-linecap="round" [attr.stroke-dasharray]="s.dashed ? '5 4' : null" />
+    @if (idx() >= 0 && s.values[idx()] !== null) {
+      <circle [attr.cx]="x(idx())" [attr.cy]="y(s.values[idx()]!)" r="4" [attr.fill]="s.color" stroke="var(--bg-panel)" stroke-width="2" />
+    }
+  }
+</svg>
+@if (idx() >= 0) {
+  <div class="chart-tip" [style.left.%]="(x(idx()) / W) * 100">
+    <b>{{ labels()[idx()] }}</b>
+    @for (s of series(); track s.name) {
+      @if (s.values[idx()] !== null) { <div><i [style.background]="s.color"></i>{{ s.name }}: {{ s.values[idx()] }}</div> }
+    }
+  </div>
+}

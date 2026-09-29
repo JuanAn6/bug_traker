@@ -1,0 +1,70 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="workflow" [size]="18" />{{ 'nav.workflow' | t }}</h1>
+    <div class="actions"><button type="button" class="btn danger" (click)="reset()"><app-icon name="undo" />{{ 'workflow.reset' | t }}</button></div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-title"><app-icon name="workflow" />{{ 'workflow.transitions' | t }}<span class="actions hint">{{ 'workflow.transitionsHint' | t }}</span></div>
+    <div class="panel-body" style="overflow:auto">
+      <table class="matrix">
+        <thead><tr><th>{{ 'workflow.fromTo' | t }}</th>@for (to of statuses; track to) { <th><app-status [status]="to" /></th> }</tr></thead>
+        <tbody>
+          @for (from of statuses; track from) {
+            <tr><th><app-status [status]="from" /></th>
+              @for (to of statuses; track to) {
+                <td [class.self]="from === to">
+                  @if (from !== to) {
+                    <input type="checkbox" [checked]="wf().transitions[from].includes(to)" (change)="toggle(from, to)"
+                      [attr.aria-label]="('status.' + from | t) + ' → ' + ('status.' + to | t)" />
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-title"><app-icon name="shield" />{{ 'workflow.thresholds' | t }}</div>
+      <div class="panel-body form-grid">
+        @for (a of actions; track a) {
+          <label [for]="'th-' + a">{{ 'workflow.action.' + a | t }}</label>
+          <select [id]="'th-' + a" [ngModel]="wf().thresholds[a]" (ngModelChange)="setThreshold(a, $event)">
+            @for (l of levels; track l) { <option [ngValue]="l">{{ 'access.' + names[l] | t }}</option> }
+          </select>
+        }
+      </div>
+    </section>
+    <div class="col">
+      <section class="panel">
+        <div class="panel-title"><app-icon name="sliders" />{{ 'workflow.statusColors' | t }}</div>
+        <div class="panel-body form-grid">
+          @for (s of statuses; track s) {
+            <label [for]="'col-' + s">{{ 'status.' + s | t }}</label>
+            <div class="row tight"><input type="color" [id]="'col-' + s" [ngModel]="wf().statusColors[s]" (ngModelChange)="setColor(s, $event)" /><app-status [status]="s" /></div>
+          }
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-title"><app-icon name="board" />{{ 'workflow.board' | t }}</div>
+        <div class="panel-body col">
+          <label class="check"><input type="checkbox" [ngModel]="wf().autoAssignStatus" (ngModelChange)="patch({ autoAssignStatus: $event })" />{{ 'workflow.autoAssign' | t }}</label>
+          <table class="grid plain">
+            <thead><tr><th>{{ 'fields.status' | t }}</th><th>{{ 'workflow.onBoard' | t }}</th><th>{{ 'workflow.wip' | t }}</th></tr></thead>
+            <tbody>
+              @for (s of statuses; track s) {
+                <tr><td><app-status [status]="s" /></td>
+                  <td class="center"><input type="checkbox" [checked]="wf().boardColumns.includes(s)" (change)="toggleColumn(s)" [attr.aria-label]="'workflow.onBoard' | t" /></td>
+                  <td><input type="number" min="0" style="width:70px" [ngModel]="wf().wipLimits[s] ?? ''" (ngModelChange)="setWip(s, $event)" [attr.aria-label]="'workflow.wip' | t" /></td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>

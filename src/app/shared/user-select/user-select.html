@@ -1,0 +1,6 @@
+<select [ngModel]="value() ?? ''" (ngModelChange)="value.set($event === '' ? null : +$event)" [attr.aria-label]="label() | t" [disabled]="disabled()">
+  @if (allowNone()) { <option value="">{{ noneLabel() | t }}</option> }
+  @for (u of users(); track u.id) {
+    <option [value]="u.id">{{ u.realName }} ({{ u.username }}){{ showLevel() ? ' — ' + ('access.' + names[u.accessLevel] | t) : '' }}</option>
+  }
+</select>

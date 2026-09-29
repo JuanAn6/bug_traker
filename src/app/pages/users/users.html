@@ -1,0 +1,78 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="users" [size]="18" />{{ 'nav.users' | t }}</h1>
+    <div class="actions">
+      <input type="search" [placeholder]="'common.search' | t" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+      <select [ngModel]="level()" (ngModelChange)="level.set(+$event)" [attr.aria-label]="'users.accessLevel' | t">
+        <option [ngValue]="0">{{ 'users.allLevels' | t }}</option>
+        @for (l of levels; track l) { <option [ngValue]="l">{{ 'access.' + names[l] | t }}</option> }
+      </select>
+      <select [ngModel]="state()" (ngModelChange)="state.set($event)" [attr.aria-label]="'users.state' | t">
+        <option value="">{{ 'common.all' | t }}</option><option value="enabled">{{ 'users.enabled' | t }}</option><option value="disabled">{{ 'users.disabled' | t }}</option>
+      </select>
+      <button type="button" class="btn primary" (click)="open()"><app-icon name="plus" />{{ 'users.new' | t }}</button>
+    </div>
+  </header>
+
+  <div class="grid-wrap">
+    <table class="grid plain">
+      <thead><tr>
+        <th>{{ 'users.username' | t }}</th><th>{{ 'users.realName' | t }}</th><th>{{ 'users.email' | t }}</th><th>{{ 'users.accessLevel' | t }}</th>
+        <th>{{ 'users.state' | t }}</th><th class="num">{{ 'users.openAssigned' | t }}</th><th>{{ 'projects.members' | t }}</th><th>{{ 'users.lastVisit' | t }}</th><th></th>
+      </tr></thead>
+      <tbody>
+        @for (r of rows(); track r.u.id) {
+          <tr [class.muted]="!r.u.enabled">
+            <td><div class="row tight nowrap"><app-avatar [user]="r.u" /><a [routerLink]="['/users', r.u.id]">{{ r.u.username }}</a></div></td>
+            <td>{{ r.u.realName }}</td>
+            <td><a [href]="'mailto:' + r.u.email">{{ r.u.email }}</a></td>
+            <td>{{ 'access.' + names[r.u.accessLevel] | t }}</td>
+            <td><span class="badge" [class.success]="r.u.enabled">{{ (r.u.enabled ? 'users.enabled' : 'users.disabled') | t }}</span></td>
+            <td class="num"><a routerLink="/issues" [queryParams]="{ handlerIds: r.u.id }">{{ r.open }}</a></td>
+            <td class="small">{{ r.projects }}</td>
+            <td [title]="r.u.lastVisit | fmtDate">{{ r.u.lastVisit ? (r.u.lastVisit | relTime) : ('users.never' | t) }}</td>
+            <td class="nowrap">
+              <button type="button" class="icon-btn sm" (click)="open(r.u)" [title]="'common.edit' | t"><app-icon name="edit" /></button>
+              <button type="button" class="icon-btn sm" [disabled]="r.u.id === auth.me().id" (click)="toggle(r.u)" [title]="(r.u.enabled ? 'users.disable' : 'users.enable') | t">
+                <app-icon [name]="r.u.enabled ? 'lock' : 'check'" /></button>
+              <button type="button" class="icon-btn sm" (click)="resetPassword(r.u)" [title]="'users.resetPassword' | t"><app-icon name="refresh" /></button>
+              <button type="button" class="icon-btn sm" [disabled]="r.u.id === auth.me().id" (click)="askDelete(r.u)" [title]="'common.delete' | t"><app-icon name="trash" /></button>
+            </td>
+          </tr>
+        } @empty { <tr><td colspan="9"><app-empty icon="users" [text]="'users.none' | t" /></td></tr> }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-dialog #editDlg [title]="(draft.id ? 'users.edit' : 'users.new') | t" size="narrow">
+  <form id="user-form" class="col" (submit)="$event.preventDefault(); save()">
+    <label class="field"><span class="label required">{{ 'users.username' | t }}</span>
+      <input name="u" [(ngModel)]="draft.username" required pattern="[A-Za-z0-9._-]{3,32}" autocomplete="off" />
+      @if (usernameError()) { <span class="error-text">{{ usernameError() }}</span> }</label>
+    <label class="field"><span class="label required">{{ 'users.realName' | t }}</span><input name="r" [(ngModel)]="draft.realName" required /></label>
+    <label class="field"><span class="label required">{{ 'users.email' | t }}</span><input name="e" type="email" [(ngModel)]="draft.email" required /></label>
+    <div class="row nowrap">
+      <label class="field" style="flex:1"><span class="label">{{ 'users.accessLevel' | t }}</span>
+        <select name="l" [(ngModel)]="draft.accessLevel">@for (l of levels; track l) { <option [ngValue]="l">{{ 'access.' + names[l] | t }}</option> }</select></label>
+      <label class="field"><span class="label">{{ 'users.color' | t }}</span><input name="c" type="color" [(ngModel)]="draft.avatarColor" /></label>
+    </div>
+    <label class="check"><input name="en" type="checkbox" [(ngModel)]="draft.enabled" [disabled]="draft.id === auth.me().id" />{{ 'users.enabled' | t }}</label>
+  </form>
+  <ng-container footer>
+    <button type="button" class="btn" (click)="editDlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="submit" form="user-form" class="btn primary" [disabled]="!valid()">{{ 'common.save' | t }}</button>
+  </ng-container>
+</app-dialog>
+
+<app-dialog #deleteDlg [title]="'users.delete' | t" size="narrow">
+  @if (deleting(); as u) {
+    <p>{{ 'users.deleteConfirm' | t: { name: u.realName, count: openOf(u.id) } }}</p>
+    <label class="field"><span class="label">{{ 'users.reassignTo' | t }}</span>
+      <app-user-select [(value)]="reassignTo" [minLevel]="40" /></label>
+  }
+  <ng-container footer>
+    <button type="button" class="btn" (click)="deleteDlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="button" class="btn danger solid" (click)="remove()">{{ 'common.delete' | t }}</button>
+  </ng-container>
+</app-dialog>

@@ -1,0 +1,23 @@
+@media print {
+  :root { --bg-panel: #fff; --bg-window: #fff; --text: #000; }
+  .menubar,
+  .toolbar,
+  .navigator,
+  .editor-tabs,
+  .statusbar,
+  .toasts,
+  .no-print,
+  .page-header .actions,
+  .rt-toolbar {
+    display: none !important;
+  }
+  .app { display: block; height: auto; overflow: visible; }
+  .workbench { display: block; padding: 0; }
+  .view { border: 0; overflow: visible; }
+  .editor-content { overflow: visible; }
+  .page { padding: 0; }
+  details.panel { display: block; }
+  details.panel > * { display: block; }
+  .panel, .note, .kv { break-inside: avoid; }
+  a { color: #000; }
+}

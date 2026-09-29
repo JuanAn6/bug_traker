@@ -1,0 +1,10 @@
+<dialog #dlg [class]="size()" (close)="onClose()" (click)="backdrop($event)" [attr.aria-label]="title()">
+  @if (isOpen()) {
+    <header class="dialog-header">
+      <h2>{{ title() }}</h2>
+      <button type="button" class="icon-btn" (click)="close()" [attr.aria-label]="'common.close' | t"><app-icon name="x" /></button>
+    </header>
+    <div class="dialog-body"><ng-content /></div>
+    <footer class="dialog-footer"><ng-content select="[footer]" /></footer>
+  }
+</dialog>

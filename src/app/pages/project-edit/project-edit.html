@@ -1,0 +1,162 @@
+@if (draft(); as p) {
+  <div class="page">
+    <header class="page-header">
+      <h1><app-icon name="database" [size]="18" />{{ original()!.name }} <span class="mono muted">{{ original()!.key }}</span></h1>
+      <div class="actions">
+        <a class="btn" routerLink="/issues" [queryParams]="{ projectIds: p.id }"><app-icon name="list" />{{ 'nav.issues' | t }}</a>
+        @if (canManage()) {
+          <button type="button" class="btn" [disabled]="!dirty()" (click)="revert()">{{ 'common.revert' | t }}</button>
+          <button type="button" class="btn primary" [disabled]="!dirty() || !!error()" (click)="save()"><app-icon name="save" />{{ 'common.saveChanges' | t }}</button>
+        }
+      </div>
+    </header>
+    @if (error()) { <div class="badge danger" role="alert">{{ error() }}</div> }
+    @if (!canManage()) { <div class="badge warning">{{ 'projects.readOnly' | t }}</div> }
+
+    <div class="tabs" role="tablist">
+      @for (t of tabList; track t.id) {
+        <button type="button" role="tab" [attr.aria-selected]="tab() === t.id" (click)="tab.set(t.id)"><app-icon [name]="t.icon" />{{ 'projects.tab.' + t.id | t }}
+          @if (t.id === 'categories') { <span class="badge">{{ p.categories.length }}</span> }
+          @if (t.id === 'versions') { <span class="badge">{{ p.versions.length }}</span> }
+          @if (t.id === 'members') { <span class="badge">{{ p.members.length }}</span> }
+        </button>
+      }
+    </div>
+
+    <fieldset [disabled]="!canManage()" style="border:0;padding:0" role="tabpanel">
+      @switch (tab()) {
+        @case ('general') {
+          <div class="form-grid" style="max-width:900px">
+            <label for="pe-name" class="required">{{ 'common.name' | t }}</label><input id="pe-name" [(ngModel)]="p.name" (ngModelChange)="touch()" maxlength="80" />
+            <label for="pe-key" class="required">{{ 'projects.key' | t }}</label>
+            <input id="pe-key" [(ngModel)]="p.key" (ngModelChange)="touch()" maxlength="10" style="text-transform:uppercase;width:140px" />
+            <label for="pe-status">{{ 'projects.status' | t }}</label>
+            <select id="pe-status" [(ngModel)]="p.status" (ngModelChange)="touch()">@for (s of projectStatuses; track s) { <option [value]="s">{{ 'projectStatus.' + s | t }}</option> }</select>
+            <label for="pe-vs">{{ 'fields.viewState' | t }}</label>
+            <select id="pe-vs" [(ngModel)]="p.viewState" (ngModelChange)="touch()"><option value="public">{{ 'viewState.public' | t }}</option><option value="private">{{ 'viewState.private' | t }}</option></select>
+            <label for="pe-parent">{{ 'projects.parent' | t }}</label>
+            <select id="pe-parent" [(ngModel)]="p.parentId" (ngModelChange)="touch()"><option [ngValue]="null">—</option>
+              @for (o of parentOptions(); track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }</select>
+            <label></label><label class="check"><input type="checkbox" [(ngModel)]="p.enabled" (ngModelChange)="touch()" />{{ 'projects.enabled' | t }}</label>
+            <label class="top">{{ 'common.description' | t }}</label>
+            <app-rich-editor [(ngModel)]="p.description" (ngModelChange)="touch()" minHeight="120px" />
+            <label>{{ 'fields.created' | t }}</label><span class="muted">{{ p.created | fmtDate }}</span>
+          </div>
+        }
+        @case ('categories') {
+          <div class="grid-wrap" style="max-width:900px">
+            <table class="grid plain">
+              <thead><tr><th>{{ 'common.name' | t }}</th><th>{{ 'projects.defaultHandler' | t }}</th><th class="num">{{ 'nav.issues' | t }}</th><th></th></tr></thead>
+              <tbody>
+                @for (c of p.categories; track $index; let i = $index) {
+                  <tr>
+                    <td><input [(ngModel)]="c.name" (ngModelChange)="touch()" [attr.aria-label]="'common.name' | t" style="width:100%" /></td>
+                    <td><app-user-select [(value)]="c.defaultHandlerId" (valueChange)="touch()" [minLevel]="40" noneLabel="common.none" /></td>
+                    <td class="num">{{ catOrig[i] ? svc.issueCount(p.id, catOrig[i]!) : 0 }}</td>
+                    <td><button type="button" class="icon-btn sm" [disabled]="p.categories.length === 1" (click)="removeCategory(i)" [title]="'common.delete' | t"><app-icon name="trash" /></button></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <form class="row tight" (submit)="$event.preventDefault(); addCategory(nc)">
+            <input #nc [placeholder]="'projects.newCategory' | t" [attr.aria-label]="'projects.newCategory' | t" />
+            <button type="submit" class="btn"><app-icon name="plus" />{{ 'common.add' | t }}</button>
+          </form>
+          <p class="hint">{{ 'projects.categoryHint' | t }}</p>
+        }
+        @case ('versions') {
+          <div class="grid-wrap">
+            <table class="grid plain">
+              <thead><tr><th></th><th>{{ 'common.name' | t }}</th><th>{{ 'projects.releaseDate' | t }}</th><th>{{ 'projects.released' | t }}</th>
+                <th>{{ 'projects.obsolete' | t }}</th><th>{{ 'common.description' | t }}</th><th class="num">{{ 'nav.issues' | t }}</th><th></th></tr></thead>
+              <tbody>
+                @for (v of p.versions; track $index; let i = $index) {
+                  <tr>
+                    <td class="nowrap">
+                      <button type="button" class="icon-btn sm" [disabled]="i === 0" (click)="moveVersion(i, -1)" [attr.aria-label]="'common.moveUp' | t"><app-icon name="chevron-up" /></button>
+                      <button type="button" class="icon-btn sm" [disabled]="i === p.versions.length - 1" (click)="moveVersion(i, 1)" [attr.aria-label]="'common.moveDown' | t"><app-icon name="chevron-down" /></button>
+                    </td>
+                    <td><input [(ngModel)]="v.name" (ngModelChange)="touch()" style="width:100px" [attr.aria-label]="'common.name' | t" /></td>
+                    <td><input type="date" [ngModel]="v.date ?? ''" (ngModelChange)="v.date = $event || null; touch()" [attr.aria-label]="'projects.releaseDate' | t" /></td>
+                    <td class="center"><input type="checkbox" [(ngModel)]="v.released" (ngModelChange)="touch()" [attr.aria-label]="'projects.released' | t" /></td>
+                    <td class="center"><input type="checkbox" [(ngModel)]="v.obsolete" (ngModelChange)="touch()" [attr.aria-label]="'projects.obsolete' | t" /></td>
+                    <td><input [(ngModel)]="v.description" (ngModelChange)="touch()" style="width:100%" [attr.aria-label]="'common.description' | t" /></td>
+                    <td class="num">{{ verOrig[i] ? svc.issueCount(p.id, undefined, verOrig[i]!) : 0 }}</td>
+                    <td><button type="button" class="icon-btn sm" (click)="removeVersion(i)" [title]="'common.delete' | t"><app-icon name="trash" /></button></td>
+                  </tr>
+                } @empty { <tr><td colspan="8" class="muted center">{{ 'projects.noVersions' | t }}</td></tr> }
+              </tbody>
+            </table>
+          </div>
+          <form class="row tight" (submit)="$event.preventDefault(); addVersion(nv)">
+            <input #nv [placeholder]="'projects.newVersion' | t" [attr.aria-label]="'projects.newVersion' | t" style="width:140px" />
+            <button type="submit" class="btn"><app-icon name="plus" />{{ 'common.add' | t }}</button>
+          </form>
+        }
+        @case ('members') {
+          <div class="grid-wrap" style="max-width:800px">
+            <table class="grid plain">
+              <thead><tr><th>{{ 'common.user' | t }}</th><th>{{ 'users.globalLevel' | t }}</th><th>{{ 'projects.projectLevel' | t }}</th><th></th></tr></thead>
+              <tbody>
+                @for (m of p.members; track m.userId; let i = $index) {
+                  <tr>
+                    <td><app-user [id]="m.userId" /></td>
+                    <td class="muted">{{ 'access.' + accessName(store.userMap().get(m.userId)?.accessLevel) | t }}</td>
+                    <td><select [(ngModel)]="m.accessLevel" (ngModelChange)="touch()" [attr.aria-label]="'projects.projectLevel' | t">
+                      @for (l of levels; track l) { <option [ngValue]="l">{{ 'access.' + names[l] | t }}</option> }</select></td>
+                    <td><button type="button" class="icon-btn sm" (click)="p.members.splice(i, 1); touch()" [title]="'common.remove' | t"><app-icon name="x" /></button></td>
+                  </tr>
+                } @empty { <tr><td colspan="4" class="muted center">{{ 'projects.noMembers' | t }}</td></tr> }
+              </tbody>
+            </table>
+          </div>
+          <div class="row tight">
+            <app-user-select [(value)]="newMember" [only]="nonMembers()" noneLabel="projects.addMember" />
+            <select [(ngModel)]="newMemberLevel" [attr.aria-label]="'projects.projectLevel' | t">@for (l of levels; track l) { <option [ngValue]="l">{{ 'access.' + names[l] | t }}</option> }</select>
+            <button type="button" class="btn" [disabled]="!newMember" (click)="addMember()"><app-icon name="plus" />{{ 'common.add' | t }}</button>
+          </div>
+          <p class="hint">{{ 'projects.membersHint' | t }}</p>
+        }
+        @case ('sprints') {
+          <div class="row"><button type="button" class="btn" (click)="sprintDlg().open(undefined, p.id)" [disabled]="!perm.can('manageSprints', p.id)"><app-icon name="plus" />{{ 'sprints.new' | t }}</button></div>
+          <div class="grid-wrap">
+            <table class="grid plain">
+              <thead><tr><th>{{ 'common.name' | t }}</th><th>{{ 'sprints.state' | t }}</th><th>{{ 'sprints.dates' | t }}</th><th>{{ 'sprints.goal' | t }}</th></tr></thead>
+              <tbody>
+                @for (s of sprints(); track s.id) {
+                  <tr><td><a [routerLink]="['/sprints', s.id]">{{ s.name }}</a></td><td>{{ 'sprintState.' + s.state | t }}</td>
+                    <td>{{ s.start | fmtDate: 'date' }} – {{ s.end | fmtDate: 'date' }}</td><td>{{ s.goal }}</td></tr>
+                } @empty { <tr><td colspan="4"><app-empty icon="zap" [text]="'sprints.none' | t" /></td></tr> }
+              </tbody>
+            </table>
+          </div>
+        }
+        @case ('fields') {
+          <div class="col" style="max-width:600px">
+            @for (f of store.customFields(); track f.id) {
+              <label class="check"><input type="checkbox" [checked]="p.customFieldIds.includes(f.id)" (change)="toggleField(f.id)" />
+                <b>{{ f.name }}</b> <span class="muted">({{ 'cfType.' + f.type | t }})</span></label>
+            } @empty { <app-empty icon="columns" [text]="'customFields.none' | t" /> }
+            @if (perm.can('manageCustomFields')) { <a routerLink="/admin/custom-fields">{{ 'customFields.manage' | t }}</a> }
+          </div>
+        }
+        @case ('stats') {
+          <div class="grid-2">
+            <section class="panel"><div class="panel-title">{{ 'summary.byStatus' | t }}</div>
+              <div class="panel-body col">
+                @for (s of stats().byStatus; track s.status) {
+                  <div class="row nowrap"><span style="width:120px"><app-status [status]="s.status" /></span><b>{{ s.count }}</b></div>
+                }
+              </div></section>
+            <section class="panel"><div class="panel-title">{{ 'summary.byCategory' | t }}</div>
+              <div class="panel-body"><app-bar-chart [data]="stats().byCategory" [label]="'summary.byCategory' | t" /></div></section>
+          </div>
+        }
+      }
+    </fieldset>
+  </div>
+  <app-sprint-dialog />
+} @else {
+  <div class="page"><app-empty icon="database" [text]="'errors.notFound' | t"><a class="btn" routerLink="/projects">{{ 'nav.projects' | t }}</a></app-empty></div>
+}

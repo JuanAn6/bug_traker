@@ -1,0 +1,96 @@
+// Data grids (DBeaver result-set look + MantisBT status row colors).
+
+.grid-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  max-width: 100%;
+}
+
+table.grid {
+  font-size: var(--font-size);
+
+  th,
+  td {
+    height: var(--row-h);
+    padding: 0 7px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    &:last-child { border-right: 0; }
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-header);
+    font-weight: 600;
+    color: var(--text);
+    user-select: none;
+
+    &.sortable { cursor: pointer; &:hover { background: var(--bg-tab-hover); } }
+    .sort { display: inline-flex; align-items: center; color: var(--accent); margin-left: 2px; }
+    .sort small { font-size: 9px; }
+    &[draggable='true'] { cursor: grab; }
+    &.drag-over { box-shadow: inset 2px 0 0 var(--accent); }
+  }
+
+  tbody tr {
+    background: var(--bg-panel);
+    &:nth-child(even) { background: var(--row-alt); }
+    &:hover td { background: var(--row-hover); }
+    &.selected td { background: var(--row-selected); }
+    &:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    &.unread .summary { font-weight: 600; }
+    &.sticky td:first-child { box-shadow: inset 3px 0 0 var(--brand-accent); }
+  }
+
+  // Status-colored rows, as in MantisBT's "View Issues".
+  &.status-rows tbody tr[data-status] td {
+    background: color-mix(in srgb, var(--st) var(--status-row-mix), var(--bg-panel));
+  }
+  &.status-rows tbody tr[data-status]:hover td { background: color-mix(in srgb, var(--st) calc(var(--status-row-mix) + 15%), var(--bg-panel)); }
+  &.status-rows tbody tr[data-status].selected td { background: var(--row-selected); }
+
+  td.summary { white-space: normal; min-width: 260px; max-width: 640px; }
+  td.sel, th.sel { width: 28px; text-align: center; padding: 0; }
+  td.num, th.num { text-align: right; }
+  a { color: inherit; }
+  a.key { color: var(--link); font-family: var(--font-mono); }
+  .icons { display: inline-flex; gap: 2px; color: var(--text-muted); }
+
+  &.plain tbody tr:nth-child(even) { background: var(--bg-panel); }
+  &.wrap td { white-space: normal; }
+}
+
+.grid-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  .pager { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+  .pager button[aria-current='page'] { background: var(--accent); color: #fff; border-color: var(--accent); }
+}
+
+.legend-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  span {
+    flex: 1;
+    padding: 2px 6px;
+    text-align: center;
+    background: var(--st);
+    color: var(--status-text);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+  }
+}

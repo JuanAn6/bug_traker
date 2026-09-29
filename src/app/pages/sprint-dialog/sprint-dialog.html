@@ -1,0 +1,24 @@
+<app-dialog #dlg [title]="(draft.id ? 'sprints.edit' : 'sprints.new') | t" size="narrow">
+  <form id="sprint-form" class="col" (submit)="$event.preventDefault(); save()">
+    <label class="field"><span class="label required">{{ 'fields.projectId' | t }}</span>
+      <select name="p" [(ngModel)]="draft.projectId" [disabled]="!!draft.id">
+        @for (p of projects(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }
+      </select></label>
+    <label class="field"><span class="label required">{{ 'common.name' | t }}</span><input name="n" [(ngModel)]="draft.name" required maxlength="60" /></label>
+    <label class="field"><span class="label">{{ 'sprints.goal' | t }}</span><textarea name="g" rows="2" [(ngModel)]="draft.goal"></textarea></label>
+    <div class="row nowrap">
+      <label class="field" style="flex:1"><span class="label required">{{ 'sprints.start' | t }}</span><input name="s" type="date" [(ngModel)]="draft.start" required /></label>
+      <label class="field" style="flex:1"><span class="label required">{{ 'sprints.end' | t }}</span><input name="e" type="date" [(ngModel)]="draft.end" [min]="draft.start" required /></label>
+    </div>
+    <div class="row nowrap">
+      <label class="field" style="flex:1"><span class="label">{{ 'sprints.capacity' | t }}</span><input name="c" type="number" min="0" [(ngModel)]="draft.capacity" /></label>
+      <label class="field" style="flex:1"><span class="label">{{ 'sprints.state' | t }}</span>
+        <select name="st" [(ngModel)]="draft.state">@for (s of states; track s) { <option [value]="s">{{ 'sprintState.' + s | t }}</option> }</select></label>
+    </div>
+    @if (invalidDates()) { <span class="error-text">{{ 'sprints.invalidDates' | t }}</span> }
+  </form>
+  <ng-container footer>
+    <button type="button" class="btn" (click)="dlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="submit" form="sprint-form" class="btn primary" [disabled]="!draft.name.trim() || !draft.projectId || invalidDates()">{{ 'common.save' | t }}</button>
+  </ng-container>
+</app-dialog>

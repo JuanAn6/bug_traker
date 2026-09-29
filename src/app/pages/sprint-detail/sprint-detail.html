@@ -1,0 +1,110 @@
+@if (sprint(); as s) {
+  <div class="page">
+    <header class="page-header">
+      <h1><app-icon name="zap" [size]="18" />{{ s.name }}
+        <span class="badge" [class.success]="s.state === 'active'" [class.info]="s.state === 'planned'">{{ 'sprintState.' + s.state | t }}</span></h1>
+      <span class="muted">{{ project()?.name }} · {{ s.start | fmtDate: 'date' }} – {{ s.end | fmtDate: 'date' }}</span>
+      <div class="actions">
+        <a class="btn" [routerLink]="['/sprints', s.id, 'board']"><app-icon name="board" />{{ 'nav.board' | t }}</a>
+        @if (canManage()) {
+          @if (s.state === 'planned') { <button type="button" class="btn primary" (click)="svc.start(s.id)"><app-icon name="play" />{{ 'sprints.startSprint' | t }}</button> }
+          @if (s.state === 'active') { <button type="button" class="btn primary" (click)="openComplete()"><app-icon name="check" />{{ 'sprints.complete' | t }}</button> }
+          <button type="button" class="btn" (click)="edit().open(s)"><app-icon name="edit" />{{ 'common.edit' | t }}</button>
+          <button type="button" class="btn danger" (click)="remove()"><app-icon name="trash" />{{ 'common.delete' | t }}</button>
+        }
+      </div>
+    </header>
+    @if (s.goal) { <p class="muted" style="margin:0">{{ 'sprints.goal' | t }}: {{ s.goal }}</p> }
+
+    <section class="kpis">
+      <div class="kpi"><span class="v">{{ bd().done }} / {{ bd().total }}</span><span class="l">{{ 'sprints.pointsDone' | t }}</span></div>
+      <div class="kpi" [class.danger]="bd().total > s.capacity"><span class="v">{{ bd().total }} / {{ s.capacity }}</span><span class="l">{{ 'sprints.pointsCapacity' | t }}</span>
+        <meter [value]="bd().total" [max]="s.capacity || 1" [high]="s.capacity * 0.9" [optimum]="s.capacity * 0.5"></meter></div>
+      <div class="kpi success"><span class="v">{{ pct() }}%</span><span class="l">{{ 'sprints.progress' | t }}</span></div>
+      <div class="kpi warning"><span class="v">{{ daysLeft() }}</span><span class="l">{{ 'sprints.daysLeftLabel' | t }}</span></div>
+      <div class="kpi brand"><span class="v">{{ scope().length }}</span><span class="l">{{ 'nav.issues' | t }}</span></div>
+    </section>
+
+    <div class="grid-2">
+      <section class="panel">
+        <div class="panel-title"><app-icon name="chart" />{{ 'sprints.burndown' | t }}</div>
+        <div class="panel-body">
+          <app-line-chart [labels]="bd().labels" [label]="'sprints.burndown' | t"
+            [series]="[{ name: ('sprints.ideal' | t), color: 'var(--text-muted)', values: bd().ideal, dashed: true },
+                       { name: ('sprints.remaining' | t), color: 'var(--chart-1)', values: bd().remaining }]" />
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-title"><app-icon name="list" />{{ 'sprints.byStatus' | t }}</div>
+        <div class="panel-body col">
+          @for (g of byStatus(); track g.status) {
+            <div class="row nowrap"><span style="width:120px"><app-status [status]="g.status" /></span>
+              <div class="stacked-bar" style="flex:1"><span [attr.data-status]="g.status" [style.flex]="g.count"></span><span style="background:transparent" [style.flex]="scope().length - g.count"></span></div>
+              <span class="muted" style="width:30px;text-align:right">{{ g.count }}</span></div>
+          }
+        </div>
+      </section>
+    </div>
+
+    @if (canManage() && s.state !== 'closed') {
+      <section class="panel">
+        <div class="panel-title"><app-icon name="layers" />{{ 'sprints.planning' | t }}
+          <span class="actions hint">{{ 'sprints.planningHint' | t }}</span></div>
+        <div class="panel-body grid-2">
+          @for (pane of panes(); track pane.id) {
+            <div class="col" style="gap:4px">
+              <div class="row"><b>{{ pane.title }}</b><span class="badge">{{ pane.issues.length }}</span>
+                <span class="muted small">{{ 'sprints.points' | t: { count: pane.points } }}</span>
+                @if (pane.id === 'backlog') {
+                  <input type="search" class="small" style="margin-left:auto;width:160px" [placeholder]="'common.search' | t" [ngModel]="backlogQuery()" (ngModelChange)="backlogQuery.set($event)" />
+                }
+              </div>
+              <div class="grid-wrap" style="max-height:340px;min-height:120px" [class.drop-ok]="dropPane() === pane.id"
+                (dragover)="$event.preventDefault(); dropPane.set(pane.id)" (dragleave)="dropPane.set('')" (drop)="drop(pane.id)">
+                <table class="grid plain">
+                  <tbody>
+                    @for (i of pane.issues; track i.id) {
+                      <tr draggable="true" (dragstart)="dragId = i.id" tabindex="0" (keydown.enter)="moveIssue(i, pane.id === 'backlog' ? 'sprint' : 'backlog')">
+                        <td style="width:24px"><app-priority [priority]="i.priority" [label]="false" /></td>
+                        <td class="summary"><a [routerLink]="['/issues', i.id]" class="mono">{{ store.issueKey(i) }}</a> {{ i.summary }}</td>
+                        <td><app-status [status]="i.status" /></td>
+                        <td class="num">{{ i.storyPoints ?? '' }}</td>
+                        <td style="width:30px"><button type="button" class="icon-btn sm" (click)="moveIssue(i, pane.id === 'backlog' ? 'sprint' : 'backlog')"
+                          [title]="(pane.id === 'backlog' ? 'sprints.addToSprint' : 'sprints.removeFromSprint') | t">
+                          <app-icon [name]="pane.id === 'backlog' ? 'chevron-right' : 'chevron-left'" /></button></td>
+                      </tr>
+                    } @empty { <tr><td class="muted center" style="height:80px">{{ 'sprints.dropHere' | t }}</td></tr> }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <section class="panel">
+      <div class="panel-title"><app-icon name="list" />{{ 'sprints.issues' | t }}</div>
+      <div class="panel-body flush">
+        <app-issue-table [issues]="scope()" [columns]="columns" [footer]="false" [emptyText]="'sprints.empty' | t" />
+      </div>
+    </section>
+  </div>
+
+  <app-sprint-dialog />
+
+  <app-dialog #completeDlg [title]="'sprints.complete' | t" size="narrow">
+    <p>{{ 'sprints.completeHint' | t: { count: unfinished().length } }}</p>
+    <label class="field"><span class="label">{{ 'sprints.moveUnfinished' | t }}</span>
+      <select [(ngModel)]="completeTarget">
+        <option [ngValue]="null">{{ 'sprints.backlog' | t }}</option>
+        @for (o of otherSprints(); track o.id) { <option [ngValue]="o.id">{{ o.name }} ({{ 'sprintState.' + o.state | t }})</option> }
+      </select></label>
+    <ng-container footer>
+      <button type="button" class="btn" (click)="completeDlg.close()">{{ 'common.cancel' | t }}</button>
+      <button type="button" class="btn primary" (click)="complete()">{{ 'sprints.complete' | t }}</button>
+    </ng-container>
+  </app-dialog>
+} @else {
+  <div class="page"><app-empty icon="zap" [text]="'errors.notFound' | t"><a class="btn" routerLink="/sprints">{{ 'nav.sprints' | t }}</a></app-empty></div>
+}

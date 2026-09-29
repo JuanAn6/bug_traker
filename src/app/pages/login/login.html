@@ -1,0 +1,32 @@
+<div class="login">
+  <div class="panel login-box">
+    <section class="panel-body col" style="border-right:1px solid var(--border)">
+      <div class="row"><span class="avatar lg" style="background:var(--brand)"><app-icon name="bug" [size]="18" /></span>
+        <div><h1>BugTracker</h1><div class="muted">{{ 'login.subtitle' | t }}</div></div></div>
+      <form class="col" (submit)="$event.preventDefault(); submit()">
+        <label class="field"><span class="label required">{{ 'login.username' | t }}</span>
+          <input name="u" [(ngModel)]="username" autocomplete="username" required autofocus /></label>
+        <label class="field"><span class="label">{{ 'login.password' | t }}</span>
+          <input name="p" type="password" [(ngModel)]="password" autocomplete="current-password" [placeholder]="'login.anyPassword' | t" /></label>
+        <label class="check"><input type="checkbox" name="r" [(ngModel)]="remember" />{{ 'login.remember' | t }}</label>
+        @if (error()) { <div class="error-text" role="alert">{{ error() }}</div> }
+        <button type="submit" class="btn primary">{{ 'login.signIn' | t }}</button>
+      </form>
+      <label class="field" style="margin-top:auto"><span class="label">{{ 'prefs.language' | t }}</span>
+        <select [ngModel]="i18n.lang()" (ngModelChange)="i18n.setLang($event); langChosen = true" name="lang">
+          @for (l of languages; track l.code) { <option [value]="l.code">{{ l.name }}</option> }
+        </select></label>
+    </section>
+    <section class="panel-body col">
+      <h3>{{ 'login.demoUsers' | t }}</h3>
+      <div class="users col" style="gap:2px">
+        @for (u of users(); track u.id) {
+          <button type="button" class="user-card" [class.selected]="username === u.username" [disabled]="!u.enabled" (click)="pick(u)" (dblclick)="pick(u); submit()">
+            <app-avatar [user]="u" /><span class="col" style="gap:0"><b>{{ u.realName }}</b>
+            <span class="small muted">{{ u.username }} · {{ 'access.' + names[u.accessLevel] | t }}{{ u.enabled ? '' : ' · ' + ('users.disabled' | t) }}</span></span>
+          </button>
+        }
+      </div>
+    </section>
+  </div>
+</div>

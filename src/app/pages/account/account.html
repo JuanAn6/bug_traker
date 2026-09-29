@@ -1,0 +1,73 @@
+<div class="page" style="max-width:1000px">
+  <header class="page-header">
+    <h1><app-avatar [user]="me()" [large]="true" />{{ 'nav.account' | t }}</h1>
+    <span class="muted">{{ me().username }} · {{ 'access.' + names[me().accessLevel] | t }}</span>
+    <div class="actions">
+      <a class="btn" [routerLink]="['/users', me().id]"><app-icon name="user" />{{ 'account.publicProfile' | t }}</a>
+      <a class="btn" routerLink="/issues" [queryParams]="{ monitorId: -1 }"><app-icon name="eye" />{{ 'menu.monitored' | t }} ({{ monitored() }})</a>
+    </div>
+  </header>
+
+  <div class="grid-2">
+    <section class="panel">
+      <div class="panel-title"><app-icon name="user" />{{ 'account.profile' | t }}</div>
+      <form class="panel-body form-grid" (submit)="$event.preventDefault(); saveProfile()">
+        <label for="a-name">{{ 'users.realName' | t }}</label><input id="a-name" name="n" [(ngModel)]="realName" required />
+        <label for="a-mail">{{ 'users.email' | t }}</label><input id="a-mail" name="e" type="email" [(ngModel)]="email" required />
+        <label for="a-color">{{ 'users.color' | t }}</label><input id="a-color" name="c" type="color" [(ngModel)]="color" />
+        <span></span><div><button type="submit" class="btn primary" [disabled]="!realName.trim() || !email.includes('@')">{{ 'common.save' | t }}</button></div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><app-icon name="lock" />{{ 'account.password' | t }}</div>
+      <form class="panel-body form-grid" (submit)="$event.preventDefault(); changePassword()">
+        <label for="a-cur">{{ 'account.currentPassword' | t }}</label><input id="a-cur" name="cur" type="password" [(ngModel)]="pwCurrent" autocomplete="current-password" />
+        <label for="a-new">{{ 'account.newPassword' | t }}</label><input id="a-new" name="new" type="password" [(ngModel)]="pwNew" minlength="8" autocomplete="new-password" />
+        <label for="a-conf">{{ 'account.confirmPassword' | t }}</label><input id="a-conf" name="conf" type="password" [(ngModel)]="pwConfirm" autocomplete="new-password" />
+        <span></span>
+        <div class="col" style="gap:4px">
+          @if (pwError()) { <span class="error-text">{{ pwError() }}</span> }
+          <div><button type="submit" class="btn" [disabled]="!!pwError() || !pwNew">{{ 'account.changePassword' | t }}</button></div>
+          <span class="hint">{{ 'account.passwordDemo' | t }}</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><app-icon name="sliders" />{{ 'menu.preferences' | t }}</div>
+      <div class="panel-body form-grid">
+        <label for="p-lang">{{ 'prefs.language' | t }}</label>
+        <select id="p-lang" [ngModel]="prefs().language" (ngModelChange)="auth.updatePrefs({ language: $event })">
+          @for (l of languages; track l.code) { <option [value]="l.code">{{ l.name }}</option> }</select>
+        <label for="p-theme">{{ 'prefs.theme' | t }}</label>
+        <select id="p-theme" [ngModel]="prefs().theme" (ngModelChange)="auth.updatePrefs({ theme: $event })">
+          @for (t of ['light', 'dark', 'system']; track t) { <option [value]="t">{{ 'theme.' + t | t }}</option> }</select>
+        <label for="p-density">{{ 'prefs.density' | t }}</label>
+        <select id="p-density" [ngModel]="prefs().density" (ngModelChange)="auth.updatePrefs({ density: $event })">
+          @for (d of ['compact', 'comfortable']; track d) { <option [value]="d">{{ 'density.' + d | t }}</option> }</select>
+        <label for="p-proj">{{ 'prefs.defaultProject' | t }}</label>
+        <select id="p-proj" [ngModel]="prefs().defaultProjectId" (ngModelChange)="auth.updatePrefs({ defaultProjectId: $event })">
+          <option [ngValue]="null">{{ 'projects.all' | t }}</option>
+          @for (p of ws.visibleProjects(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }</select>
+        <label for="p-size">{{ 'grid.pageSize' | t }}</label>
+        <select id="p-size" [ngModel]="prefs().pageSize" (ngModelChange)="auth.updatePrefs({ pageSize: +$event })">
+          @for (n of [10, 25, 50, 100, 0]; track n) { <option [ngValue]="n">{{ n || ('common.all' | t) }}</option> }</select>
+        <label for="p-notes">{{ 'prefs.notesOrder' | t }}</label>
+        <select id="p-notes" [ngModel]="prefs().notesNewestFirst" (ngModelChange)="auth.updatePrefs({ notesNewestFirst: $event })">
+          <option [ngValue]="false">{{ 'issue.oldestFirst' | t }}</option><option [ngValue]="true">{{ 'issue.newestFirst' | t }}</option></select>
+        <label>{{ 'prefs.home' | t }}</label><a routerLink="/">{{ 'home.customize' | t }}</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title"><app-icon name="bell" />{{ 'prefs.notifications' | t }}</div>
+      <div class="panel-body col">
+        <p class="hint">{{ 'prefs.notificationsHint' | t }}</p>
+        @for (e of events; track e) {
+          <label class="check"><input type="checkbox" [checked]="prefs().notify[e]" (change)="toggleNotify(e)" />{{ 'notifications.kind.' + e | t }}</label>
+        }
+      </div>
+    </section>
+  </div>
+</div>

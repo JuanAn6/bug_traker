@@ -1,0 +1,10 @@
+<div class="chips">
+  @for (t of value(); track t) {
+    <span class="tag">{{ t }} @if (!readonly()) {<button type="button" (click)="remove(t)" [attr.aria-label]="'common.remove' | t"><app-icon name="x" [size]="10" /></button>}</span>
+  }
+  @if (!readonly()) {
+    <input #inp [attr.list]="listId" [placeholder]="'tags.add' | t"
+      (keydown.enter)="$event.preventDefault(); add(inp)" (change)="add(inp)" (blur)="add(inp)" />
+    <datalist [id]="listId">@for (t of suggestions(); track t) { <option [value]="t"></option> }</datalist>
+  }
+</div>

@@ -1,0 +1,15 @@
+<svg class="chart" [attr.viewBox]="'0 0 ' + W + ' ' + height()" role="img" [attr.aria-label]="label()">
+  @for (t of ticks(); track t) {
+    <line class="grid-line" [attr.x1]="x(t)" [attr.x2]="x(t)" y1="0" [attr.y2]="height() - 14" />
+    <text [attr.x]="x(t)" [attr.y]="height() - 2" text-anchor="middle">{{ t }}</text>
+  }
+  @for (b of data(); track b.label; let i = $index) {
+    <g>
+      <title>{{ b.label }}: {{ b.value }}{{ b.hint ? ' — ' + b.hint : '' }}</title>
+      <rect [attr.x]="0" [attr.y]="i * ROW" [attr.width]="W" [attr.height]="ROW" fill="transparent" />
+      <text [attr.x]="LABEL_W - 6" [attr.y]="i * ROW + ROW / 2 + 3.5" text-anchor="end" class="bar-label">{{ trim(b.label) }}</text>
+      <path [attr.d]="bar(i, b.value)" [attr.fill]="b.color ?? 'var(--chart-1)'" />
+      <text [attr.x]="x(b.value) + 4" [attr.y]="i * ROW + ROW / 2 + 3.5" class="bar-label">{{ b.value }}</text>
+    </g>
+  }
+</svg>

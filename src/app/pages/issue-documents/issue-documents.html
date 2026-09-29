@@ -1,0 +1,131 @@
+@if (!previewOnly()) {
+<div class="col" (appFileDrop)="upload($event)" [dropDisabled]="!canUpload()" style="min-height:120px">
+  <div class="row">
+    @if (canUpload()) {
+      <button type="button" class="btn primary" (click)="picker.click()"><app-icon name="upload" />{{ 'files.upload' | t }}</button>
+      <input #picker type="file" multiple hidden (change)="pick(picker)" />
+      <input class="small" style="flex:0 1 240px" [placeholder]="'files.descriptionPlaceholder' | t" [(ngModel)]="uploadDescription" />
+    }
+    <div class="row tight" role="radiogroup" [attr.aria-label]="'files.source' | t">
+      @for (s of sources; track s) {
+        <button type="button" class="btn sm" [attr.aria-pressed]="source() === s" (click)="source.set(s)">
+          {{ 'files.source_' + s | t }} ({{ counts()[s] }})</button>
+      }
+    </div>
+    <span class="spacer"></span>
+    <input type="search" class="small" style="width:160px" [placeholder]="'common.search' | t" [ngModel]="query()" (ngModelChange)="query.set($event)" />
+    <select class="small" [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event)" [attr.aria-label]="'common.sort' | t">
+      @for (s of sorts; track s) { <option [value]="s">{{ 'files.sort_' + s | t }}</option> }
+    </select>
+    <button type="button" class="icon-btn" [attr.aria-pressed]="view() === 'list'" (click)="view.set('list')" [title]="'files.listView' | t"><app-icon name="list" /></button>
+    <button type="button" class="icon-btn" [attr.aria-pressed]="view() === 'grid'" (click)="view.set('grid')" [title]="'files.gridView' | t"><app-icon name="grid" /></button>
+    @if (visible().length > 1) {
+      <button type="button" class="btn sm" (click)="files.downloadAll(visible())"><app-icon name="download" />{{ 'files.downloadAll' | t }}</button>
+    }
+  </div>
+  <div class="hint">{{ 'files.hint' | t: { max: maxSize } }}</div>
+
+  @if (!visible().length) {
+    <div class="empty"><app-icon name="paperclip" [size]="28" />{{ 'files.none' | t }}</div>
+  } @else if (view() === 'list') {
+    <div class="grid-wrap">
+      <table class="grid plain">
+        <thead><tr>
+          <th>{{ 'files.name' | t }}</th><th>{{ 'files.source' | t }}</th><th class="num">{{ 'files.size' | t }}</th>
+          <th>{{ 'files.uploader' | t }}</th><th>{{ 'files.date' | t }}</th><th>{{ 'files.version' | t }}</th><th></th>
+        </tr></thead>
+        <tbody>
+          @for (a of visible(); track a.id) {
+            <tr>
+              <td style="white-space:normal">
+                <button type="button" class="link-btn row tight nowrap" (click)="preview(a)"><app-icon [name]="icon(a)" />{{ a.name }}</button>
+                @if (a.description) { <div class="small muted">{{ a.description }}</div> }
+                @if (versionsOpen().has(a.id)) {
+                  @for (v of files.versions(a); track v.id) {
+                    <div class="small row tight"><app-icon name="history" [size]="11" />
+                      <button type="button" class="link-btn" (click)="preview(v)">v{{ v.version }} · {{ v.name }}</button>
+                      <span class="muted">{{ v.size | bytes }} · {{ v.date | fmtDate }}</span></div>
+                  }
+                }
+              </td>
+              <td>@if (a.commentId) { <button type="button" class="link-btn" (click)="gotoNote.emit(a.commentId)">{{ 'files.fromNote' | t: { id: a.commentId } }}</button> }
+                  @else { {{ 'files.ticket' | t }} }</td>
+              <td class="num">{{ a.size | bytes }}</td>
+              <td><app-user [id]="a.uploaderId" [short]="true" /></td>
+              <td [title]="a.date | fmtDate">{{ a.date | relTime }}</td>
+              <td>@if (a.version > 1) { <button type="button" class="link-btn" (click)="toggleVersions(a.id)">v{{ a.version }} ▾</button> } @else { v1 }</td>
+              <td class="nowrap">
+                <button type="button" class="icon-btn sm" (click)="files.download(a)" [title]="'files.download' | t"><app-icon name="download" /></button>
+                @if (canUpload()) {
+                  <button type="button" class="icon-btn sm" (click)="startVersion(a, vp)" [title]="'files.newVersion' | t"><app-icon name="upload" /></button>
+                  <button type="button" class="icon-btn sm" (click)="edit(a)" [title]="'files.rename' | t"><app-icon name="edit" /></button>
+                }
+                @if (files.canDelete(a)) {
+                  <button type="button" class="icon-btn sm" (click)="remove(a)" [title]="'common.delete' | t"><app-icon name="trash" /></button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <div class="doc-grid">
+      @for (a of visible(); track a.id) {
+        <div class="doc" tabindex="0" (click)="preview(a)" (keydown.enter)="preview(a)">
+          <div class="thumb">
+            @if (thumbs()[a.id]; as src) { <img [src]="src" [alt]="a.name" loading="lazy" /> } @else { <app-icon [name]="icon(a)" [size]="32" /> }
+          </div>
+          <div class="info">
+            <div class="ellipsis" [title]="a.name">{{ a.name }}</div>
+            <div class="muted">{{ a.size | bytes }} · v{{ a.version }}{{ a.commentId ? ' · ' + ('files.fromNote' | t: { id: a.commentId }) : '' }}</div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
+<input #vp type="file" hidden (change)="finishVersion(vp)" />
+}
+
+<app-dialog #previewDlg [title]="current()?.name ?? ''" size="wide" (closed)="current.set(null)">
+  @if (current(); as a) {
+    <div class="row small muted">
+      <app-user [id]="a.uploaderId" /> · {{ a.date | fmtDate }} · {{ a.size | bytes }} · {{ a.mimeType }} · v{{ a.version }}
+      @if (a.commentId) { · <button type="button" class="link-btn" (click)="previewDlg.close(); gotoNote.emit(a.commentId)">{{ 'files.fromNote' | t: { id: a.commentId } }}</button> }
+    </div>
+    @if (a.description) { <p>{{ a.description }}</p> }
+    <div class="preview">
+      @switch (kind(a)) {
+        @case ('image') { <img [src]="currentUrl()" [alt]="a.name" [style.transform]="'scale(' + zoom() + ')'" /> }
+        @case ('pdf') { <iframe [src]="safeUrl()" [title]="a.name"></iframe> }
+        @case ('video') { <video [src]="currentUrl()" controls></video> }
+        @case ('audio') { <audio [src]="currentUrl()" controls></audio> }
+        @case ('text') { <pre>{{ currentText() }}</pre> }
+        @default { <div class="empty"><app-icon name="file" [size]="36" />{{ 'files.noPreview' | t }}</div> }
+      }
+    </div>
+  }
+  <ng-container footer>
+    @if (kind(current()) === 'image') {
+      <button type="button" class="btn" (click)="zoom.set(zoom() / 1.25)">−</button>
+      <button type="button" class="btn" (click)="zoom.set(1)">100%</button>
+      <button type="button" class="btn" (click)="zoom.set(zoom() * 1.25)">+</button>
+    }
+    <button type="button" class="btn" [disabled]="!hasSibling(-1)" (click)="step(-1)">‹ {{ 'common.previous' | t }}</button>
+    <button type="button" class="btn" [disabled]="!hasSibling(1)" (click)="step(1)">{{ 'common.next' | t }} ›</button>
+    <span class="spacer"></span>
+    @if (current(); as a) { <button type="button" class="btn primary" (click)="files.download(a)"><app-icon name="download" />{{ 'files.download' | t }}</button> }
+  </ng-container>
+</app-dialog>
+
+<app-dialog #editDlg [title]="'files.rename' | t" size="narrow">
+  <form id="file-edit" class="col" (submit)="$event.preventDefault(); saveEdit()">
+    <label class="field"><span class="label required">{{ 'files.name' | t }}</span><input name="n" [(ngModel)]="editName" required /></label>
+    <label class="field"><span class="label">{{ 'common.description' | t }}</span><textarea name="d" [(ngModel)]="editDescription" rows="3"></textarea></label>
+  </form>
+  <ng-container footer>
+    <button type="button" class="btn" (click)="editDlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="submit" form="file-edit" class="btn primary" [disabled]="!editName.trim()">{{ 'common.save' | t }}</button>
+  </ng-container>
+</app-dialog>

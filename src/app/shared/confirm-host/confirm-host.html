@@ -1,0 +1,20 @@
+<app-dialog #d size="narrow" [title]="c()?.title ?? ''" (closed)="answer(false)">
+  @if (c(); as c) {
+    <p class="message">{{ c.message }}</p>
+    @if (c.typeToConfirm) {
+      <label class="field"><span class="label">{{ 'common.typeToConfirm' | t: { text: c.typeToConfirm } }}</span>
+        <input [ngModel]="typed()" (ngModelChange)="typed.set($event)" autocomplete="off" /></label>
+    }
+  }
+  <ng-container footer>
+    <button type="button" class="btn" (click)="answer(false)">{{ 'common.cancel' | t }}</button>
+    @for (ch of c()?.choices ?? []; track ch.value) {
+      <button type="button" class="btn" [class.danger]="ch.danger" (click)="answer(ch.value)">{{ ch.label }}</button>
+    }
+    @if (!c()?.choices?.length) {
+      <button type="button" class="btn" [class.primary]="!c()?.danger" [class.danger]="c()?.danger" [class.solid]="c()?.danger"
+        [disabled]="!!c()?.typeToConfirm && typed() !== c()?.typeToConfirm" (click)="answer('ok')">
+        {{ c()?.confirm ?? ('common.ok' | t) }}</button>
+    }
+  </ng-container>
+</app-dialog>

@@ -1,0 +1,51 @@
+<div class="page" style="max-width:900px">
+  <header class="page-header"><h1><app-icon name="sliders" [size]="18" />{{ 'nav.settings' | t }}</h1>
+    <div class="actions"><a class="btn" routerLink="/account"><app-icon name="user" />{{ 'menu.preferences' | t }}</a></div></header>
+
+  <section class="panel">
+    <div class="panel-title"><app-icon name="database" />{{ 'settings.storage' | t }}</div>
+    <div class="panel-body col">
+      <div class="row"><span style="width:200px">{{ 'settings.dataSize' | t }}</span><b>{{ dataSize() | bytes }}</b>
+        <span class="muted small">({{ 'settings.localStorageLimit' | t }})</span></div>
+      <meter [value]="dataSize()" [max]="5 * 1024 * 1024" [high]="4 * 1024 * 1024" style="max-width:420px"></meter>
+      <div class="row"><span style="width:200px">{{ 'settings.files' | t }}</span><b>{{ store.attachments().length }}</b> · {{ filesSize() | bytes }}</div>
+      @if (quota(); as q) {
+        <div class="row"><span style="width:200px">{{ 'settings.browserQuota' | t }}</span>{{ q.usage | bytes }} / {{ q.quota | bytes }}</div>
+        <meter [value]="q.usage" [max]="q.quota" style="max-width:420px"></meter>
+      }
+      <div class="row">
+        <button type="button" class="btn" (click)="purge()"><app-icon name="refresh" />{{ 'settings.purgeOrphans' | t }}</button>
+        <button type="button" class="btn danger" (click)="clearFiles()"><app-icon name="trash" />{{ 'settings.clearFiles' | t }}</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title"><app-icon name="download" />{{ 'settings.backup' | t }}</div>
+    <div class="panel-body col">
+      <p class="hint">{{ 'settings.backupHint' | t }}</p>
+      <div class="row">
+        <button type="button" class="btn primary" (click)="exportAll()"><app-icon name="download" />{{ 'settings.export' | t }}</button>
+        @if (perm.can('manageWorkflow')) {
+          <button type="button" class="btn" (click)="file.click()"><app-icon name="upload" />{{ 'settings.import' | t }}</button>
+          <input #file type="file" accept="application/json,.json" hidden (change)="importAll(file)" />
+        }
+      </div>
+    </div>
+  </section>
+
+  @if (perm.can('manageWorkflow')) {
+    <section class="panel">
+      <div class="panel-title"><app-icon name="alert" />{{ 'settings.danger' | t }}</div>
+      <div class="panel-body row">
+        <p class="hint" style="flex:1;margin:0">{{ 'settings.resetHint' | t }}</p>
+        <button type="button" class="btn danger solid" (click)="reset()"><app-icon name="undo" />{{ 'settings.reset' | t }}</button>
+      </div>
+    </section>
+  }
+
+  <section class="panel">
+    <div class="panel-title"><app-icon name="info" />{{ 'menu.about' | t }}</div>
+    <div class="panel-body"><p><b>BugTracker</b> — {{ 'about.text' | t }}</p><p class="muted">{{ 'about.storage' | t }}</p></div>
+  </section>
+</div>

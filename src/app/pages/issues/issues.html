@@ -1,0 +1,279 @@
+<div class="page">
+  <header class="page-header">
+    <h1><app-icon name="list" [size]="18" />{{ 'nav.issues' | t }}</h1>
+    <span class="muted">{{ activeFilter()?.name ?? '' }}</span>
+    <div class="actions">
+      <select [ngModel]="activeFilter()?.id ?? ''" (ngModelChange)="applySaved($event)" [attr.aria-label]="'nav.savedFilters' | t">
+        <option value="">{{ 'filters.choose' | t }}</option>
+        @for (f of savedFilters(); track f.id) { <option [value]="f.id">{{ f.name }}{{ f.shared ? ' (' + ('filters.shared' | t) + ')' : '' }}{{ f.isDefault ? ' ★' : '' }}</option> }
+      </select>
+      <button type="button" class="btn" (click)="openSave()"><app-icon name="save" />{{ 'filters.save' | t }}</button>
+      @if (activeFilter(); as f) {
+        @if (f.ownerId === auth.me().id) {
+          <button type="button" class="icon-btn" #fm popovertarget="filter-menu" [title]="'common.more' | t"><app-icon name="more" /></button>
+          <div popover id="filter-menu" [appMenu]="fm" placement="below-end">
+            <button type="button" (click)="openSave(f)"><app-icon name="edit" />{{ 'filters.rename' | t }}</button>
+            <button type="button" (click)="setDefault(f)"><app-icon name="pin" />{{ 'filters.setDefault' | t }}</button>
+            <button type="button" (click)="updateSaved(f)"><app-icon name="save" />{{ 'filters.overwrite' | t }}</button>
+            <hr /><button type="button" (click)="deleteSaved(f)"><app-icon name="trash" />{{ 'common.delete' | t }}</button>
+          </div>
+        }
+      }
+      <span class="tb-sep"></span>
+      <button type="button" class="btn" #colBtn popovertarget="col-menu"><app-icon name="columns" />{{ 'grid.columns' | t }}</button>
+      <div popover id="col-menu" [appMenu]="colBtn" placement="below-end" style="max-height:60vh;overflow:auto">
+        @for (c of allColumns; track c) {
+          <button type="button" data-keep-open (click)="toggleColumn(c)"><span class="check">{{ columns().includes(c) ? '✓' : '' }}</span>{{ 'columns.' + c | t }}</button>
+        }
+        <hr /><button type="button" (click)="setColumns(defaultColumns)">{{ 'grid.resetColumns' | t }}</button>
+      </div>
+      <button type="button" class="btn" #expBtn popovertarget="exp-menu"><app-icon name="download" />{{ 'common.export' | t }}</button>
+      <div popover id="exp-menu" [appMenu]="expBtn" placement="below-end">
+        <button type="button" (click)="exportCsv(sorted())"><app-icon name="file-text" />CSV ({{ filtered().length }})</button>
+        <button type="button" (click)="exportJson(sorted())"><app-icon name="file" />JSON ({{ filtered().length }})</button>
+        <button type="button" (click)="print()"><app-icon name="printer" />{{ 'menu.print' | t }}</button>
+        @if (perm.can('report')) { <hr /><button type="button" (click)="openImport()"><app-icon name="import" />{{ 'import.title' | t }}</button> }
+      </div>
+      @if (perm.can('report')) { <a class="btn primary" routerLink="/report"><app-icon name="plus" />{{ 'nav.report' | t }}</a> }
+    </div>
+  </header>
+
+  <!-- Quick filter row -->
+  <div class="row">
+    <input type="search" style="flex:1 1 260px" [placeholder]="'filters.textPlaceholder' | t" [ngModel]="c().text"
+      (ngModelChange)="setText($event)" [attr.aria-label]="'filters.text' | t" />
+    <label class="check"><input type="checkbox" [ngModel]="c().searchNotes" (ngModelChange)="set('searchNotes', $event)" />{{ 'filters.searchNotes' | t }}</label>
+    <select [ngModel]="c().handlerIds.join(',')" (ngModelChange)="set('handlerIds', $event ? $event.split(',').map(toNum) : [])" [attr.aria-label]="'fields.handlerId' | t">
+      <option value="">{{ 'filters.anyHandler' | t }}</option>
+      <option value="-1">{{ 'filters.me' | t }}</option>
+      <option value="0">{{ 'common.unassigned' | t }}</option>
+      @for (u of users(); track u.id) { <option [value]="u.id">{{ u.realName }}</option> }
+    </select>
+    <select [ngModel]="c().hideStatus" (ngModelChange)="set('hideStatus', $event)" [attr.aria-label]="'filters.hideStatus' | t">
+      <option value="">{{ 'filters.showAll' | t }}</option>
+      @for (s of statuses; track s) { <option [value]="s">{{ 'filters.hideFrom' | t: { status: ('status.' + s | t) } }}</option> }
+    </select>
+    <label class="check"><input type="checkbox" [ngModel]="c().overdueOnly" (ngModelChange)="set('overdueOnly', $event)" />{{ 'filters.overdue' | t }}</label>
+    <button type="button" class="btn" (click)="advancedOpen.set(!advancedOpen())" [attr.aria-expanded]="advancedOpen()">
+      <app-icon name="filter" />{{ 'filters.advanced' | t }}@if (activeCount()) { <span class="badge info">{{ activeCount() }}</span> }</button>
+    <button type="button" class="btn ghost" (click)="reset()">{{ 'filters.reset' | t }}</button>
+  </div>
+
+  @if (advancedOpen()) {
+    <section class="panel">
+      <div class="panel-title"><app-icon name="filter" />{{ 'filters.advanced' | t }}</div>
+      <div class="panel-body fields">
+        <label class="field"><span class="label">{{ 'fields.projectId' | t }}</span>
+          <select multiple size="4" [ngModel]="c().projectIds" (ngModelChange)="set('projectIds', $event.map(toNum))">
+            @for (p of ws.visibleProjects(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }
+          </select>
+          <label class="check small"><input type="checkbox" [ngModel]="c().includeSubprojects" (ngModelChange)="set('includeSubprojects', $event)" />{{ 'filters.subprojects' | t }}</label>
+        </label>
+        <label class="field"><span class="label">{{ 'fields.status' | t }}</span>
+          <select multiple size="4" [ngModel]="c().statuses" (ngModelChange)="set('statuses', $event)">
+            @for (s of statuses; track s) { <option [ngValue]="s">{{ 'status.' + s | t }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.priority' | t }}</span>
+          <select multiple size="4" [ngModel]="c().priorities" (ngModelChange)="set('priorities', $event)">
+            @for (p of priorities; track p) { <option [ngValue]="p">{{ 'priority.' + p | t }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.severity' | t }}</span>
+          <select multiple size="4" [ngModel]="c().severities" (ngModelChange)="set('severities', $event)">
+            @for (s of severities; track s) { <option [ngValue]="s">{{ 'severity.' + s | t }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.resolution' | t }}</span>
+          <select multiple size="4" [ngModel]="c().resolutions" (ngModelChange)="set('resolutions', $event)">
+            @for (r of resolutions; track r) { <option [ngValue]="r">{{ 'resolution.' + r | t }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.reproducibility' | t }}</span>
+          <select multiple size="4" [ngModel]="c().reproducibility" (ngModelChange)="set('reproducibility', $event)">
+            @for (r of reproducibility; track r) { <option [ngValue]="r">{{ 'reproducibility.' + r | t }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.category' | t }}</span>
+          <select multiple size="4" [ngModel]="c().categories" (ngModelChange)="set('categories', $event)">
+            @for (cat of categories(); track cat) { <option [ngValue]="cat">{{ cat }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.sprintId' | t }}</span>
+          <select multiple size="4" [ngModel]="c().sprintIds" (ngModelChange)="set('sprintIds', $event)">
+            <option [ngValue]="'none'">{{ 'sprints.backlog' | t }}</option>
+            @for (s of sprints(); track s.id) { <option [ngValue]="s.id">{{ store.projectMap().get(s.projectId)?.key }} · {{ s.name }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.reporterId' | t }}</span>
+          <select multiple size="4" [ngModel]="c().reporterIds" (ngModelChange)="set('reporterIds', $event)">
+            <option [ngValue]="-1">{{ 'filters.me' | t }}</option>
+            @for (u of users(); track u.id) { <option [ngValue]="u.id">{{ u.realName }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.handlerId' | t }}</span>
+          <select multiple size="4" [ngModel]="c().handlerIds" (ngModelChange)="set('handlerIds', $event)">
+            <option [ngValue]="-1">{{ 'filters.me' | t }}</option>
+            <option [ngValue]="0">{{ 'common.unassigned' | t }}</option>
+            @for (u of users(); track u.id) { <option [ngValue]="u.id">{{ u.realName }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.tags' | t }}</span>
+          <select multiple size="4" [ngModel]="c().tags" (ngModelChange)="set('tags', $event)">
+            @for (t of store.tags(); track t[0]) { <option [ngValue]="t[0]">{{ t[0] }} ({{ t[1] }})</option> }
+          </select>
+          <select class="small" [ngModel]="c().tagsMode" (ngModelChange)="set('tagsMode', $event)">
+            <option value="any">{{ 'filters.tagsAny' | t }}</option><option value="all">{{ 'filters.tagsAll' | t }}</option>
+          </select></label>
+        <label class="field"><span class="label">{{ 'filters.monitoredBy' | t }}</span>
+          <select [ngModel]="c().monitorId ?? ''" (ngModelChange)="set('monitorId', $event === '' ? null : +$event)">
+            <option value="">{{ 'common.any' | t }}</option><option value="-1">{{ 'filters.me' | t }}</option>
+            @for (u of users(); track u.id) { <option [value]="u.id">{{ u.realName }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.targetVersion' | t }}</span>
+          <select [ngModel]="c().targetVersion" (ngModelChange)="set('targetVersion', $event)">
+            <option value="">{{ 'common.any' | t }}</option>@for (v of versions(); track v) { <option [value]="v">{{ v }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.fixedInVersion' | t }}</span>
+          <select [ngModel]="c().fixedInVersion" (ngModelChange)="set('fixedInVersion', $event)">
+            <option value="">{{ 'common.any' | t }}</option>@for (v of versions(); track v) { <option [value]="v">{{ v }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'fields.platform' | t }}</span>
+          <input [ngModel]="c().platform" (change)="set('platform', $any($event.target).value)" /></label>
+        <label class="field"><span class="label">{{ 'fields.os' | t }}</span>
+          <input [ngModel]="c().os" (change)="set('os', $any($event.target).value)" /></label>
+        <label class="field"><span class="label">{{ 'fields.viewState' | t }}</span>
+          <select [ngModel]="c().viewState" (ngModelChange)="set('viewState', $event)">
+            <option value="">{{ 'common.any' | t }}</option><option value="public">{{ 'viewState.public' | t }}</option><option value="private">{{ 'viewState.private' | t }}</option>
+          </select></label>
+        <label class="field"><span class="label">{{ 'filters.relationship' | t }}</span>
+          <select [ngModel]="c().relationship" (ngModelChange)="set('relationship', $event)">
+            <option value="">{{ 'common.any' | t }}</option>@for (r of relationships; track r) { <option [value]="r">{{ 'relationship.' + r | t }}</option> }
+          </select></label>
+        <label class="field"><span class="label">{{ 'filters.attachments' | t }}</span>
+          <select [ngModel]="c().hasAttachments === null ? '' : String(c().hasAttachments)" (ngModelChange)="set('hasAttachments', $event === '' ? null : $event === 'true')">
+            <option value="">{{ 'common.any' | t }}</option><option value="true">{{ 'filters.withFiles' | t }}</option><option value="false">{{ 'filters.withoutFiles' | t }}</option>
+          </select></label>
+        <div class="field"><span class="label">{{ 'filters.created' | t }}</span>
+          <div class="row tight nowrap"><input type="date" [ngModel]="c().createdFrom" (ngModelChange)="set('createdFrom', $event)" [attr.aria-label]="'common.from' | t" />
+            <input type="date" [ngModel]="c().createdTo" (ngModelChange)="set('createdTo', $event)" [attr.aria-label]="'common.to' | t" /></div></div>
+        <div class="field"><span class="label">{{ 'filters.updated' | t }}</span>
+          <div class="row tight nowrap"><input type="date" [ngModel]="c().updatedFrom" (ngModelChange)="set('updatedFrom', $event)" [attr.aria-label]="'common.from' | t" />
+            <input type="date" [ngModel]="c().updatedTo" (ngModelChange)="set('updatedTo', $event)" [attr.aria-label]="'common.to' | t" /></div></div>
+        <div class="field"><span class="label">{{ 'fields.dueDate' | t }}</span>
+          <div class="row tight nowrap"><input type="date" [ngModel]="c().dueFrom" (ngModelChange)="set('dueFrom', $event)" [attr.aria-label]="'common.from' | t" />
+            <input type="date" [ngModel]="c().dueTo" (ngModelChange)="set('dueTo', $event)" [attr.aria-label]="'common.to' | t" /></div></div>
+        <label class="field"><span class="label">{{ 'nav.customFields' | t }}</span>
+          <select [ngModel]="c().customFieldId ?? ''" (ngModelChange)="set('customFieldId', $event === '' ? null : +$event)">
+            <option value="">{{ 'common.none' | t }}</option>@for (f of store.customFields(); track f.id) { <option [value]="f.id">{{ f.name }}</option> }
+          </select>
+          @if (c().customFieldId !== null) {
+            <input [placeholder]="'filters.cfValue' | t" [ngModel]="c().customFieldValue" (change)="set('customFieldValue', $any($event.target).value)" />
+          }
+        </label>
+      </div>
+    </section>
+  }
+
+  <!-- Active filter chips -->
+  @if (chips().length) {
+    <div class="chips">
+      <span class="muted small">{{ 'filters.active' | t }}:</span>
+      @for (ch of chips(); track ch.key) {
+        <span class="chip"><span class="v"><b>{{ ch.label }}:</b> {{ ch.value }}</span>
+          <button type="button" (click)="clear(ch.key)" [attr.aria-label]="'common.remove' | t"><app-icon name="x" [size]="10" /></button></span>
+      }
+    </div>
+  }
+
+  <!-- Bulk actions -->
+  @if (selection().length) {
+    <div class="panel no-print">
+      <div class="panel-body row">
+        <b>{{ 'grid.selected' | t: { count: selection().length } }}</b>
+        @if (perm.can('assign')) {
+          <app-user-select [value]="null" (valueChange)="bulkAssign($event)" noneLabel="bulk.assignTo" [minLevel]="40" label="actions.assign" />
+        }
+        <select (change)="bulkStatus($any($event.target))" [attr.aria-label]="'bulk.status' | t">
+          <option value="">{{ 'bulk.status' | t }}</option>@for (s of statuses; track s) { <option [value]="s">{{ 'status.' + s | t }}</option> }
+        </select>
+        <select (change)="bulkField('priority', $any($event.target))" [attr.aria-label]="'bulk.priority' | t">
+          <option value="">{{ 'bulk.priority' | t }}</option>@for (p of priorities; track p) { <option [value]="p">{{ 'priority.' + p | t }}</option> }
+        </select>
+        <select (change)="bulkField('severity', $any($event.target))" [attr.aria-label]="'bulk.severity' | t">
+          <option value="">{{ 'bulk.severity' | t }}</option>@for (s of severities; track s) { <option [value]="s">{{ 'severity.' + s | t }}</option> }
+        </select>
+        <select (change)="bulkSprint($any($event.target))" [attr.aria-label]="'bulk.sprint' | t">
+          <option value="">{{ 'bulk.sprint' | t }}</option><option value="none">{{ 'sprints.backlog' | t }}</option>
+          @for (s of sprints(); track s.id) { <option [value]="s.id">{{ store.projectMap().get(s.projectId)?.key }} · {{ s.name }}</option> }
+        </select>
+        <select (change)="bulkVersion($any($event.target))" [attr.aria-label]="'bulk.version' | t">
+          <option value="">{{ 'bulk.version' | t }}</option><option value="-">{{ 'common.none' | t }}</option>
+          @for (v of versions(); track v) { <option [value]="v">{{ v }}</option> }
+        </select>
+        @if (perm.can('move')) {
+          <select (change)="bulkMove($any($event.target))" [attr.aria-label]="'bulk.move' | t">
+            <option value="">{{ 'bulk.move' | t }}</option>@for (p of ws.visibleProjects(); track p.id) { <option [value]="p.id">{{ p.name }}</option> }
+          </select>
+        }
+        <button type="button" class="btn" #more popovertarget="bulk-more"><app-icon name="more" />{{ 'common.more' | t }}</button>
+        <div popover id="bulk-more" [appMenu]="more">
+          <button type="button" (click)="bulkTag(true)"><app-icon name="tag" />{{ 'bulk.addTag' | t }}</button>
+          <button type="button" (click)="bulkTag(false)"><app-icon name="tag" />{{ 'bulk.removeTag' | t }}</button>
+          <button type="button" (click)="actions.setMonitor(selection(), auth.me().id, true)"><app-icon name="eye" />{{ 'actions.monitor' | t }}</button>
+          <button type="button" (click)="actions.setMonitor(selection(), auth.me().id, false)"><app-icon name="eye" />{{ 'actions.unmonitor' | t }}</button>
+          <button type="button" (click)="bulkClone()"><app-icon name="copy" />{{ 'actions.clone' | t }}</button>
+          <button type="button" (click)="exportCsv(selectedIssues())"><app-icon name="download" />{{ 'bulk.exportSelected' | t }}</button>
+          @if (perm.can('delete')) { <hr /><button type="button" (click)="bulkDelete()"><app-icon name="trash" />{{ 'common.delete' | t }}</button> }
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost" (click)="selection.set([])">{{ 'bulk.clear' | t }}</button>
+      </div>
+    </div>
+  }
+
+  <app-issue-table [issues]="filtered()" [columns]="columns()" (columnsChange)="setColumns($event)" [sort]="sort()" (sortChange)="setSort($event)"
+    [(selection)]="selection" [selectable]="true" [reorderable]="true" [pageSize]="pageSize()" [(page)]="page" />
+
+  <div class="row no-print">
+    <label class="row tight small muted">{{ 'grid.pageSize' | t }}
+      <select [ngModel]="pageSize()" (ngModelChange)="auth.updatePrefs({ pageSize: +$event })">
+        @for (n of [10, 25, 50, 100, 0]; track n) { <option [ngValue]="n">{{ n || ('common.all' | t) }}</option> }
+      </select></label>
+    <div class="legend-status" style="flex:1;max-width:760px">
+      @for (s of statuses; track s) { <span [attr.data-status]="s">{{ 'status.' + s | t }}</span> }
+    </div>
+  </div>
+</div>
+
+<!-- Save filter -->
+<app-dialog #saveDlg [title]="(editingFilter() ? 'filters.rename' : 'filters.save') | t" size="narrow">
+  <form id="save-filter" class="col" (submit)="$event.preventDefault(); saveFilter()">
+    <label class="field"><span class="label required">{{ 'common.name' | t }}</span><input name="n" [(ngModel)]="saveName" required maxlength="60" /></label>
+    <label class="check"><input type="checkbox" name="s" [(ngModel)]="saveShared" />{{ 'filters.shareHint' | t }}</label>
+    <label class="check"><input type="checkbox" name="d" [(ngModel)]="saveDefault" />{{ 'filters.defaultHint' | t }}</label>
+  </form>
+  <ng-container footer>
+    <button type="button" class="btn" (click)="saveDlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="submit" form="save-filter" class="btn primary" [disabled]="!saveName.trim()">{{ 'common.save' | t }}</button>
+  </ng-container>
+</app-dialog>
+
+<!-- Import CSV -->
+<app-dialog #importDlg [title]="'import.title' | t" size="wide">
+  <p class="muted">{{ 'import.hint' | t }}</p>
+  <div class="row">
+    <input type="file" accept=".csv,text/csv" (change)="readCsv($any($event.target))" />
+    <label class="row tight">{{ 'fields.projectId' | t }}
+      <select [(ngModel)]="importProject">@for (p of ws.visibleProjects(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }</select></label>
+  </div>
+  @if (csvRows().length) {
+    <div class="grid-wrap" style="max-height:340px">
+      <table class="grid plain">
+        <thead><tr>@for (h of csvRows()[0]; track $index) {
+          <th><div class="small muted">{{ h }}</div>
+            <select [ngModel]="mapping()[$index]" (ngModelChange)="setMapping($index, $event)">
+              <option value="">{{ 'import.ignore' | t }}</option>
+              @for (f of importFields; track f) { <option [value]="f">{{ 'fields.' + f | t }}</option> }
+            </select></th> }</tr></thead>
+        <tbody>@for (r of csvRows().slice(1, 8); track $index) { <tr>@for (v of r; track $index) { <td>{{ v }}</td> }</tr> }</tbody>
+      </table>
+    </div>
+    <div class="muted small">{{ 'import.rows' | t: { count: csvRows().length - 1 } }}</div>
+  }
+  <ng-container footer>
+    <button type="button" class="btn" (click)="importDlg.close()">{{ 'common.cancel' | t }}</button>
+    <button type="button" class="btn primary" [disabled]="!canImport()" (click)="runImport()">{{ 'import.run' | t }}</button>
+  </ng-container>
+</app-dialog>

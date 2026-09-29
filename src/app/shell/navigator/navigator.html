@@ -1,0 +1,98 @@
+<div class="view-title">
+  <app-icon name="database" />{{ 'nav.navigator' | t }}
+  <span class="spacer"></span>
+  @if (perm.can('manageProject')) {
+    <a class="icon-btn sm" routerLink="/projects" [queryParams]="{ new: 1 }" [title]="'projects.new' | t"><app-icon name="plus" [size]="12" /></a>
+  }
+  <button type="button" class="icon-btn sm" (click)="ws.navigatorOpen.set(false)" [title]="'nav.hideNavigator' | t"><app-icon name="x" [size]="12" /></button>
+</div>
+<div class="tree" role="tree">
+  <a class="node lvl-0" [class.active]="ws.projectId() === null" (click)="ws.projectId.set(null)" routerLink="/issues" role="treeitem">
+    <span class="twisty"></span><app-icon name="layers" /><span class="label">{{ 'projects.all' | t }}</span>
+    <span class="n">{{ openCount(null) }}</span>
+  </a>
+  @for (tp of tree(); track tp.p.id) {
+    <ng-container *ngTemplateOutlet="projectNode; context: { $implicit: tp, lvl: 0 }" />
+  }
+  <ng-template #projectNode let-tp let-lvl="lvl">
+    <details [open]="isOpen(tp.p.id)" (toggle)="setOpen(tp.p.id, $event)" role="treeitem">
+      <summary class="node" [class]="'lvl-' + lvl" [class.active]="ws.projectId() === tp.p.id"
+        (click)="selectProject(tp.p, $event)" (contextmenu)="context($event, tp.p)">
+        <span class="twisty"><app-icon name="chevron-right" [size]="11" /></span>
+        <app-icon [name]="tp.p.parentId ? 'branch' : 'database'" />
+        <span class="label" [class.muted]="!tp.p.enabled">{{ tp.p.name }}</span>
+        @if (tp.p.viewState === 'private') { <app-icon name="lock" [size]="10" /> }
+        <span class="n">{{ openCount(tp.p.id) }}</span>
+      </summary>
+      @for (child of tp.children; track child.p.id) {
+        <ng-container *ngTemplateOutlet="projectNode; context: { $implicit: child, lvl: lvl + 1 }" />
+      }
+      <details [open]="isOpen('s' + tp.p.id)" (toggle)="setOpen('s' + tp.p.id, $event)">
+        <summary class="node" [class]="'lvl-' + (lvl + 1)">
+          <span class="twisty"><app-icon name="chevron-right" [size]="11" /></span><app-icon name="zap" />
+          <span class="label">{{ 'nav.sprints' | t }}</span><span class="n">{{ sprintsOf(tp.p.id).length }}</span>
+        </summary>
+        @for (s of sprintsOf(tp.p.id); track s.id) {
+          <a class="node" [class]="'lvl-' + (lvl + 2)" [routerLink]="['/sprints', s.id]">
+            <span class="twisty"></span>
+            <app-icon [name]="s.state === 'active' ? 'play' : s.state === 'closed' ? 'check' : 'clock'" [size]="11" />
+            <span class="label" [class.muted]="s.state === 'closed'">{{ s.name }}</span>
+            @if (s.state === 'active') { <span class="badge success">{{ 'sprintState.active' | t }}</span> }
+          </a>
+        }
+      </details>
+      <details [open]="isOpen('v' + tp.p.id)" (toggle)="setOpen('v' + tp.p.id, $event)">
+        <summary class="node" [class]="'lvl-' + (lvl + 1)">
+          <span class="twisty"><app-icon name="chevron-right" [size]="11" /></span><app-icon name="flag" />
+          <span class="label">{{ 'nav.versions' | t }}</span><span class="n">{{ tp.p.versions.length }}</span>
+        </summary>
+        @for (v of tp.p.versions; track v.name) {
+          <a class="node" [class]="'lvl-' + (lvl + 2)" routerLink="/issues" [queryParams]="{ projectIds: tp.p.id, targetVersion: v.name, hideStatus: '' }">
+            <span class="twisty"></span><app-icon name="flag" [size]="11" />
+            <span class="label" [class.muted]="v.released || v.obsolete">{{ v.name }}</span>
+            @if (v.released) { <span class="n">✓</span> }
+          </a>
+        }
+      </details>
+      <details [open]="isOpen('c' + tp.p.id)" (toggle)="setOpen('c' + tp.p.id, $event)">
+        <summary class="node" [class]="'lvl-' + (lvl + 1)">
+          <span class="twisty"><app-icon name="chevron-right" [size]="11" /></span><app-icon name="box" />
+          <span class="label">{{ 'nav.categories' | t }}</span><span class="n">{{ tp.p.categories.length }}</span>
+        </summary>
+        @for (c of tp.p.categories; track c.name) {
+          <a class="node" [class]="'lvl-' + (lvl + 2)" routerLink="/issues" [queryParams]="{ projectIds: tp.p.id, categories: c.name }">
+            <span class="twisty"></span><app-icon name="box" [size]="11" /><span class="label">{{ c.name }}</span>
+          </a>
+        }
+      </details>
+    </details>
+  </ng-template>
+
+  <details [open]="isOpen('filters')" (toggle)="setOpen('filters', $event)" style="margin-top:4px">
+    <summary class="node lvl-0">
+      <span class="twisty"><app-icon name="chevron-right" [size]="11" /></span><app-icon name="filter" />
+      <span class="label">{{ 'nav.savedFilters' | t }}</span><span class="n">{{ filters().length }}</span>
+    </summary>
+    @for (f of filters(); track f.id) {
+      <a class="node lvl-1" routerLink="/issues" [queryParams]="{ filter: f.id }">
+        <span class="twisty"></span><app-icon name="filter" [size]="11" /><span class="label">{{ f.name }}</span>
+        @if (f.shared) { <span class="n"><app-icon name="users" [size]="10" /></span> }
+      </a>
+    } @empty { <div class="node lvl-1 muted"><span class="twisty"></span>{{ 'filters.none' | t }}</div> }
+  </details>
+</div>
+
+<div popover appMenu #ctx="appMenu">
+  @if (ctxProject(); as p) {
+    <div class="menu-label">{{ p.name }}</div>
+    <button type="button" (click)="router.navigate(['/report'], { queryParams: { project: p.id } })"><app-icon name="plus" />{{ 'actions.reportHere' | t }}</button>
+    <button type="button" (click)="router.navigate(['/issues'], { queryParams: { projectIds: p.id } })"><app-icon name="list" />{{ 'nav.issues' | t }}</button>
+    <button type="button" (click)="router.navigate(['/board'], { queryParams: { project: p.id } })"><app-icon name="board" />{{ 'nav.board' | t }}</button>
+    <button type="button" (click)="router.navigate(['/roadmap'], { queryParams: { project: p.id } })"><app-icon name="map" />{{ 'nav.roadmap' | t }}</button>
+    @if (perm.can('manageProject', p.id)) {
+      <hr />
+      <button type="button" (click)="router.navigate(['/projects', p.id])"><app-icon name="edit" />{{ 'projects.edit' | t }}</button>
+      <button type="button" (click)="router.navigate(['/sprints'], { queryParams: { project: p.id, new: 1 } })"><app-icon name="zap" />{{ 'sprints.new' | t }}</button>
+    }
+  }
+</div>

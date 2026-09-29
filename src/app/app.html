@@ -1,0 +1,11 @@
+<router-outlet />
+<div class="toasts" aria-live="polite">
+  @for (t of toasts.items(); track t.id) {
+    <div class="toast" [class]="t.kind" role="status">
+      <span class="text">{{ t.text }}</span>
+      @if (t.action; as a) { <button type="button" class="btn sm" (click)="a.run(); toasts.dismiss(t.id)">{{ a.label }}</button> }
+      <button type="button" class="icon-btn sm" (click)="toasts.dismiss(t.id)" [attr.aria-label]="'common.close' | t"><app-icon name="x" [size]="10" /></button>
+    </div>
+  }
+</div>
+<app-confirm-host />
