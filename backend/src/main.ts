@@ -46,7 +46,13 @@ async function bootstrap(): Promise<void> {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: { enableImplicitConversion: true },
+      transformOptions: {
+        enableImplicitConversion: true,
+        // Without this, class-transformer materializes EVERY declared property as an own key
+        // with value undefined — so a PATCH of {priority} would look like a patch of all
+        // twenty fields, and the per-field permission whitelist would reject it.
+        exposeUnsetFields: false,
+      },
     }),
   );
 
