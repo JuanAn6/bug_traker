@@ -9,6 +9,7 @@ import type { Env } from '../../core/config/env.schema';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { DemoModeGuard } from '../../common/guards/demo-mode.guard';
+import { Throttle, ThrottleGuard } from '../../common/guards/throttle.guard';
 import { AuthService } from './auth.service';
 import type { AuthUser, TokenPair } from './auth.types';
 import { ChangePasswordDto, LoginDto } from './dto/auth.dto';
@@ -31,6 +32,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottleGuard)
+  @Throttle({ name: 'login', subjectFrom: 'username' })
   @Post('login')
   async login(
     @Body() dto: LoginDto,
@@ -43,6 +46,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottleGuard)
+  @Throttle({ name: 'refresh' })
   @Post('refresh')
   async refresh(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
     const token = this.readRefreshCookie(request);
@@ -65,6 +70,8 @@ export class AuthController {
   }
 
   @Post('password')
+  @UseGuards(ThrottleGuard)
+  @Throttle({ name: 'password', limit: 5 })
   @HttpCode(204)
   async changePassword(@CurrentUser('id') userId: number, @Body() dto: ChangePasswordDto) {
     await this.auth.changePassword(userId, dto.currentPassword, dto.newPassword);

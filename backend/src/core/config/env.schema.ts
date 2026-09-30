@@ -45,6 +45,13 @@ export const envSchema = z.object({
   CACHE_DRIVER: z.enum(['memory', 'redis']).default('memory'),
   QUEUE_DRIVER: z.enum(['in-process', 'bullmq']).default('in-process'),
 
+  /**
+   * Login throttling. Configurable because the right number depends on the deployment — and
+   * because a test suite that logs in a few hundred times is not an attack.
+   */
+  THROTTLE_LOGIN_MAX: int(10),
+  THROTTLE_LOGIN_WINDOW_MS: int(60_000),
+
   UNDO_TTL_MS: int(120_000),
   IMPORT_MAX_BYTES: int(64 * 1024 * 1024),
 

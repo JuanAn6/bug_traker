@@ -23,6 +23,9 @@ export async function startServer(): Promise<void> {
       NODE_ENV: 'test',
       LOG_LEVEL: 'warn',
       DEMO_MODE: 'true',
+      // The suite logs in a few hundred times from one address. The limit is verified by a unit
+      // test over the guard itself, which is where a fixed-window counter belongs.
+      THROTTLE_LOGIN_MAX: '100000',
       DATABASE_URL: process.env['DATABASE_URL_TEST'] ?? '',
     },
     stdio: ['ignore', 'pipe', 'pipe'],

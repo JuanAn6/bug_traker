@@ -1,15 +1,18 @@
 import 'reflect-metadata';
 import fastifyCookie from '@fastify/cookie';
 import fastifyMultipart from '@fastify/multipart';
+import fastifyRateLimit from '@fastify/rate-limit';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { MAX_FILE_SIZE } from './shared/config';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import type { Env } from './core/config/env.schema';
 import { DrizzleService } from './core/database/drizzle.service';
+import { loggerConfig } from './core/config/logger.config';
 import { StripUndefinedPipe } from './common/pipes/strip-undefined.pipe';
 
 async function bootstrap(): Promise<void> {
@@ -20,6 +23,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ trustProxy: true, bodyLimit: 2 * 1024 * 1024 }),
+    // Nest's own logger is replaced below, once the Pino instance is resolvable.
+    { bufferLogs: true },
   );
   const config = app.get(ConfigService<Env, true>);
   const logger = new Logger('bootstrap');
@@ -35,7 +40,24 @@ async function bootstrap(): Promise<void> {
     );
   };
 
+  // Structured JSON logs with a correlation id per request; see logger.config.ts.
+  app.useLogger(app.get(PinoLogger));
+
   await registerPlugin(fastifyCookie);
+
+  /**
+   * Rate limiting, global but generous, with a much tighter bucket on the routes that are worth
+   * attacking. Keyed by IP for anonymous callers and by user id once authenticated, so one noisy
+   * client behind a shared NAT cannot lock out everyone else.
+   */
+  await registerPlugin(fastifyRateLimit, {
+    global: true,
+    max: 600,
+    timeWindow: '1 minute',
+    keyGenerator: (request: { authUser?: { id: number }; ip: string }) =>
+      request.authUser ? `u:${request.authUser.id}` : `ip:${request.ip}`,
+    allowList: (request: { url: string }) => request.url.startsWith('/api/health'),
+  });
   await registerPlugin(fastifyMultipart, {
     // Enforced during the stream, so an oversized upload is cut off rather than buffered.
     limits: { fileSize: MAX_FILE_SIZE, files: 10 },
