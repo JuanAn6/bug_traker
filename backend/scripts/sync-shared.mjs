@@ -25,8 +25,10 @@ const digestFile = join(target, '.digests.json');
 
 /**
  * `to` differs from `from` only where the backend needs a different local name:
- * issue-filter.ts becomes filter-semantics.ts because it is test-only here — production
- * code must never filter in memory, it goes through SQL (see issue-query.builder.ts).
+ * issue-filter.ts becomes filter-semantics.ts because only part of it applies here:
+ * criteriaToParams/paramsToCriteria ARE the URL contract and are used in production, while
+ * filterIssues/sortIssues are test-only — production filtering goes through SQL
+ * (see issue-query.builder.ts), and the two are compared in test/integration/filter-parity.
  */
 const FILES = [
   { from: 'models.ts', to: 'models.ts' },

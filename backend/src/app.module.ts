@@ -9,6 +9,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ThresholdGuard } from './common/guards/threshold.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
+import { CatalogModule } from './modules/catalog/catalog.module';
+import { IssuesModule } from './modules/issues/issues.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 
 /**
@@ -17,7 +19,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
  * authorization.
  */
 @Module({
-  imports: [ConfigModule, PortsModule, DrizzleModule, CoreModule, AuthModule, WorkflowModule],
+  imports: [ConfigModule, PortsModule, DrizzleModule, CoreModule, AuthModule, CatalogModule, IssuesModule, WorkflowModule],
   controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
