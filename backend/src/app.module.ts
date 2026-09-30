@@ -7,9 +7,11 @@ import { PortsModule } from './core/ports/ports.module';
 import { DomainExceptionFilter } from './common/filters/domain-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ThresholdGuard } from './common/guards/threshold.guard';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { CommentsModule } from './modules/comments/comments.module';
 import { IssuesModule } from './modules/issues/issues.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 
@@ -19,7 +21,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
  * authorization.
  */
 @Module({
-  imports: [ConfigModule, PortsModule, DrizzleModule, CoreModule, AuthModule, CatalogModule, IssuesModule, WorkflowModule],
+  imports: [ConfigModule, PortsModule, DrizzleModule, CoreModule, AuthModule, CatalogModule, CommentsModule, IssuesModule, WorkflowModule, AdminModule],
   controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

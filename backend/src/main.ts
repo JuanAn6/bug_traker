@@ -10,6 +10,7 @@ import { MAX_FILE_SIZE } from './shared/config';
 import { AppModule } from './app.module';
 import type { Env } from './core/config/env.schema';
 import { DrizzleService } from './core/database/drizzle.service';
+import { StripUndefinedPipe } from './common/pipes/strip-undefined.pipe';
 
 async function bootstrap(): Promise<void> {
   // Every date-range predicate is built as a UTC instant because the frontend compares
@@ -46,14 +47,12 @@ async function bootstrap(): Promise<void> {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-        // Without this, class-transformer materializes EVERY declared property as an own key
-        // with value undefined — so a PATCH of {priority} would look like a patch of all
-        // twenty fields, and the per-field permission whitelist would reject it.
-        exposeUnsetFields: false,
-      },
+      transformOptions: { enableImplicitConversion: true },
     }),
+    // Runs after validation: class-transformer materializes every declared DTO property, so a
+    // PATCH of one field arrives with all the others set to undefined. Left in place, those
+    // overwrite real values with nothing. See the pipe for the full story.
+    new StripUndefinedPipe(),
   );
 
   const origins = config.get('CORS_ORIGINS', { infer: true });

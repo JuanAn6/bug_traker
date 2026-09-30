@@ -274,7 +274,7 @@ export class IssuesWriteService {
         patch.category = (await this.resolveCategory(row.projectId, patch.category)).name;
       }
 
-      return this.applyAndPersist(tx, actor, row, patch);
+      return this.applyPatchInTransaction(tx, actor, row, patch);
     });
   }
 
@@ -329,7 +329,7 @@ export class IssuesWriteService {
         patch.handlerId = input.handlerId;
       }
 
-      const result = await this.applyAndPersist(tx, actor, row, patch);
+      const result = await this.applyPatchInTransaction(tx, actor, row, patch);
 
       let noteId: number | undefined;
       if (input.note && plainText(input.note).trim()) {
@@ -419,8 +419,16 @@ export class IssuesWriteService {
     return noteId;
   }
 
-  /** The shared tail of update / changeStatus / bulk: run the domain, then persist its output. */
-  private async applyAndPersist(
+  /**
+   * Runs the domain over one issue and persists everything it produced, inside a transaction
+   * the caller already owns.
+   *
+   * Public because the bulk service needs exactly this and must not reimplement it: the
+   * automations, the history ordering, the notifications and the search reindex all live here,
+   * and a second copy would drift. The caller is responsible for the locking, the permission
+   * checks and the transaction.
+   */
+  async applyPatchInTransaction(
     tx: Tx,
     actor: AuthUser,
     row: IssueRow,

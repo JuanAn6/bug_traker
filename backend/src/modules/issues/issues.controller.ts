@@ -1,5 +1,6 @@
 import {
-  Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Req,
+  Body, Controller, Delete, Get, HttpCode, Param, ParseBoolPipe, ParseIntPipe, Patch, Post, Query,
+  Req,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -7,7 +8,13 @@ import { resolvePaging } from '../../common/pagination/page-query.dto';
 import type { AuthUser } from '../auth/auth.types';
 import { parseIssueQuery } from './dto/filter-issue.dto';
 import { Requires } from '../../common/decorators/requires.decorator';
+import {
+  BulkAssignDto, BulkDeleteDto, BulkMoveDto, BulkPatchDto, BulkStatusDto, CloneIssueDto,
+  MonitorDto, RelationshipDto, TagDto,
+} from './dto/bulk.dto';
 import { ChangeStatusDto, CreateIssueDto, UpdateIssueDto } from './dto/write-issue.dto';
+import { IssueBulkService } from './issue-bulk.service';
+import { IssueLinksService } from './issue-links.service';
 import { IssueDetailService } from './issue-detail.service';
 import { IssuesQueryService } from './issues.query.service';
 import { IssuesWriteService } from './issues.write.service';
@@ -18,6 +25,8 @@ export class IssuesController {
     private readonly issues: IssuesQueryService,
     private readonly details: IssueDetailService,
     private readonly writes: IssuesWriteService,
+    private readonly bulk: IssueBulkService,
+    private readonly links: IssueLinksService,
   ) {}
 
   /**
@@ -92,10 +101,9 @@ export class IssuesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateIssueDto,
   ) {
-    const { rowVersion, ...rest } = dto;
-    // Defensive: an explicit `undefined` in the body would otherwise count as "this field is
-    // being patched" and be rejected by the per-field threshold check.
-    const patch = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined));
+    // Undefined keys are already gone: StripUndefinedPipe runs globally, because leaving them
+    // in makes a one-field patch look like a patch of every field on the DTO.
+    const { rowVersion, ...patch } = dto;
     return this.writes.update(actor, id, patch as never, rowVersion);
   }
 
@@ -108,5 +116,126 @@ export class IssuesController {
     @Body() dto: ChangeStatusDto,
   ) {
     return this.writes.changeStatus(actor, id, dto);
+  }
+
+  // ─────────────────────────── bulk ───────────────────────────
+
+  /**
+   * Every bulk endpoint reports per-id outcomes: `applied` plus `skipped` with a reason each.
+   * The frontend drops unauthorized ids silently and calls the whole thing a success; a client
+   * should be able to say "12 of 15 updated" instead.
+   *
+   * Ids are locked in ascending order and processed in chunks, so two overlapping bulk
+   * operations wait for each other rather than deadlocking.
+   */
+  @Post('bulk')
+  @HttpCode(200)
+  bulkPatch(@CurrentUser() actor: AuthUser, @Body() dto: BulkPatchDto) {
+    const { ids, ...patch } = dto;
+    return this.bulk.bulkUpdate(actor, ids, patch as never);
+  }
+
+  @Post('bulk/status')
+  @HttpCode(200)
+  bulkStatus(@CurrentUser() actor: AuthUser, @Body() dto: BulkStatusDto) {
+    return this.bulk.bulkStatus(actor, dto.ids, dto.status);
+  }
+
+  @Post('bulk/assign')
+  @HttpCode(200)
+  bulkAssign(@CurrentUser() actor: AuthUser, @Body() dto: BulkAssignDto) {
+    return this.bulk.bulkAssign(actor, dto.ids, dto.handlerId ?? null);
+  }
+
+  @Post('bulk/move')
+  @HttpCode(200)
+  bulkMove(@CurrentUser() actor: AuthUser, @Body() dto: BulkMoveDto) {
+    return this.bulk.bulkMove(actor, dto.ids, dto.projectId);
+  }
+
+  /** Soft delete, with an undo token. Nothing is actually removed. */
+  @Delete('bulk')
+  @HttpCode(200)
+  bulkDelete(@CurrentUser() actor: AuthUser, @Body() dto: BulkDeleteDto) {
+    return this.bulk.bulkDelete(actor, dto.ids);
+  }
+
+  @Delete(':id')
+  @HttpCode(200)
+  remove(@CurrentUser() actor: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    return this.bulk.bulkDelete(actor, [id]);
+  }
+
+  @Post(':id/clone')
+  clone(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CloneIssueDto,
+  ) {
+    return this.bulk.clone(actor, id, dto);
+  }
+
+  @Post(':id/sticky')
+  @HttpCode(200)
+  async sticky(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body('sticky', new ParseBoolPipe()) value: boolean,
+  ) {
+    return this.writes.update(actor, id, { sticky: value });
+  }
+
+  // ─────────────────── relationships, monitors, tags ───────────────────
+
+  /** Creates both directions and needs `manageRelationships`. */
+  @Post(':id/relationships')
+  @HttpCode(204)
+  async addRelationship(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RelationshipDto,
+  ) {
+    await this.links.addRelationship(actor, id, dto.type, dto.issueId);
+  }
+
+  @Delete(':id/relationships/:targetId')
+  @HttpCode(204)
+  async removeRelationship(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('targetId', ParseIntPipe) targetId: number,
+  ) {
+    await this.links.removeRelationship(actor, id, targetId);
+  }
+
+  /** Monitoring somebody else needs `monitorOthers`, evaluated globally. */
+  @Post(':id/monitors')
+  @HttpCode(204)
+  async setMonitor(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: MonitorDto,
+  ) {
+    await this.links.setMonitor(actor, id, dto.userId ?? actor.id, dto.on);
+  }
+
+  @Post(':id/tags')
+  @HttpCode(204)
+  async addTag(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: TagDto,
+  ) {
+    await this.links.addTag(actor, id, dto.tag);
+  }
+
+  @Delete(':id/tags/:tag')
+  @HttpCode(204)
+  async removeTag(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('tag') tag: string,
+  ) {
+    await this.links.removeTag(actor, id, tag);
   }
 }
