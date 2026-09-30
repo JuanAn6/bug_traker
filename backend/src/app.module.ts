@@ -13,6 +13,7 @@ import { DomainExceptionFilter } from './common/filters/domain-exception.filter'
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ThresholdGuard } from './common/guards/threshold.guard';
 import { AdminModule } from './modules/admin/admin.module';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
 import { CatalogModule } from './modules/catalog/catalog.module';
@@ -45,7 +46,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
         } as Env),
     }),
     PortsModule, DrizzleModule, CoreModule,
-    AuthModule, CatalogModule, CommentsModule, CustomFieldsModule, EventsModule, HistoryModule, IssuesModule,
+    AttachmentsModule, AuthModule, CatalogModule, CommentsModule, CustomFieldsModule, EventsModule, HistoryModule, IssuesModule,
     NotificationsModule, ProjectsModule, SprintsModule, SummaryModule, UsersModule,
     WorkflowModule, AdminModule,
   ],

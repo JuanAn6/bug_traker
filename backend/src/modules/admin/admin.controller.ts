@@ -14,6 +14,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DRIZZLE, type Db } from '../../core/database/drizzle.service';
 import { ProjectTreeService } from '../../core/project-tree/project-tree.service';
 import { WorkflowService } from '../../core/workflow/workflow.service';
+import { AttachmentsService } from '../attachments/attachments.service';
 import type { AuthUser } from '../auth/auth.types';
 import { exportDb } from './db-export';
 import { ingestDb } from './db-import';
@@ -27,6 +28,7 @@ export class AdminController {
     @Inject(DRIZZLE) private readonly db: Db,
     private readonly tree: ProjectTreeService,
     private readonly workflow: WorkflowService,
+    private readonly attachments: AttachmentsService,
     private readonly config: ConfigService<Env, true>,
   ) {
     this.demoMode = config.get('DEMO_MODE', { infer: true });
@@ -107,10 +109,25 @@ export class AdminController {
     return { repaired: before };
   }
 
+  /**
+   * Reclaims storage: abandoned pending uploads, metadata past its retention, and bytes nothing
+   * references — including bytes on disk with no row at all, which is what a validation failure
+   * after the stream was written leaves behind.
+   *
+   * Runs on a schedule too; this is the manual trigger.
+   */
+  @Post('purge-orphans')
+  @HttpCode(200)
+  @Requires('manageUsers')
+  purgeOrphans() {
+    return this.attachments.purgeOrphans();
+  }
+
   /** What the settings page shows: row counts, disk usage and the integrity report. */
   @Get('storage')
   @Requires('manageUsers')
   async storage(@CurrentUser() _actor: AuthUser) {
+    const files = await this.attachments.usage();
     const [counts] = await this.db.execute(sql`
       SELECT
         (SELECT COUNT(*) FROM issues WHERE deletedAt IS NULL) AS issues,
@@ -139,6 +156,9 @@ export class AdminController {
     return {
       counts: Object.fromEntries(Object.entries(rows).map(([k, v]) => [k, Number(v)])),
       databaseBytes: Number(size['bytes'] ?? 0),
+      // Files live outside the database, so a mysqldump is not a complete backup — the storage
+      // root has to be backed up alongside it.
+      files,
       disk,
       integrity: await this.integrityCheck(),
     };

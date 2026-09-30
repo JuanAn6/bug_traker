@@ -16,6 +16,7 @@ import { can, canEditIssue, canSeeProject } from '../auth/ability';
 import type { AuthUser } from '../auth/auth.types';
 import { HistoryWriter } from '../history/history.writer';
 import { NotificationFanout, type NotificationDraft } from '../notifications/notification.fanout';
+import { AttachmentsService } from '../attachments/attachments.service';
 import { allowedTransitions } from './domain/allowed-transitions';
 import { applyPatch, type IssueAggregate } from './domain/apply-patch';
 import { rankColumns } from './domain/rank';
@@ -54,6 +55,8 @@ export interface CreateIssueInput {
    * anyone forge a reporter.
    */
   reporterId?: number;
+  /** Pending uploads to attach. Each is verified to be this caller's own, unattached row. */
+  attachmentIds?: number[];
 }
 
 export interface StatusChangeInput {
@@ -91,6 +94,7 @@ export class IssuesWriteService {
     private readonly workflow: WorkflowService,
     private readonly history: HistoryWriter,
     private readonly fanout: NotificationFanout,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   // ─────────────────────────── create ───────────────────────────
@@ -202,6 +206,12 @@ export class IssuesWriteService {
 
       // Exactly one 'created' row — no per-field history on creation.
       await this.history.writeMany(tx, actor.id, [{ issueId: newId, type: 'created' }], now);
+
+      // Files uploaded from the report form before the issue existed. Adoption happens inside this
+      // transaction, so an issue is never briefly visible without the files its author attached.
+      if (input.attachmentIds?.length) {
+        await this.attachments.adopt(tx, actor, input.attachmentIds, { issueId: newId });
+      }
 
       const drafts: NotificationDraft[] = [];
       if (handlerId) {

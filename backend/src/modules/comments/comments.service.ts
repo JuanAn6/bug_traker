@@ -12,6 +12,7 @@ import { can, canEditNote, canSeeNote } from '../auth/ability';
 import type { AuthUser } from '../auth/auth.types';
 import { HistoryWriter } from '../history/history.writer';
 import { NotificationFanout } from '../notifications/notification.fanout';
+import { AttachmentsService } from '../attachments/attachments.service';
 import { commentSearchNorm } from '../issues/domain/search-text';
 import { IssuesQueryService } from '../issues/issues.query.service';
 
@@ -44,6 +45,7 @@ export class CommentsService {
     private readonly workflow: WorkflowService,
     private readonly history: HistoryWriter,
     private readonly fanout: NotificationFanout,
+    private readonly attachments: AttachmentsService,
   ) {}
 
   /** Notes on an issue, private ones filtered out, ordered by the caller's own preference. */
@@ -99,7 +101,7 @@ export class CommentsService {
   async create(
     actor: AuthUser,
     issueId: number,
-    input: { body: RichText; private?: boolean; timeSpent?: number },
+    input: { body: RichText; private?: boolean; timeSpent?: number; attachmentIds?: number[] },
   ): Promise<{ id: number }> {
     const issue = await this.issues.requireVisible(actor, issueId);
     const [wf, project] = await Promise.all([
@@ -142,6 +144,12 @@ export class CommentsService {
         [{ issueId, type: 'note_added', field: 'note', new: String(noteId) }],
         now,
       );
+
+      // Attached with commentId set, so the documents panel can show which note they came from —
+      // and so their visibility follows the note's private flag.
+      if (input.attachmentIds?.length) {
+        await this.attachments.adopt(tx, actor, input.attachmentIds, { issueId, commentId: noteId });
+      }
 
       await this.notifyForNote(tx, actor, {
         issueId,

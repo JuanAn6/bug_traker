@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { AttachmentsModule } from '../attachments/attachments.module';
 import { IssueDetailService } from './issue-detail.service';
 import { IssuesController } from './issues.controller';
 import { IssuesQueryService } from './issues.query.service';
@@ -9,6 +10,7 @@ import { HistoryWriter } from '../history/history.writer';
 import { NotificationFanout } from '../notifications/notification.fanout';
 
 @Module({
+  imports: [forwardRef(() => AttachmentsModule)],
   controllers: [IssuesController],
   providers: [
     IssuesQueryService, IssueDetailService, IssuesWriteService, IssueBulkService,

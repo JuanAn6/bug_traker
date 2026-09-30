@@ -1,0 +1,17 @@
+# Editor / IDE — local, no compartido.
+.vscode/
+.idea/
+.history/
+
+# Node
+node_modules/
+
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# Logs y sistema
+*.log
+.DS_Store
+Thumbs.db
